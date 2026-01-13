@@ -2,11 +2,11 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 
 // Import Component đã tách
-import QuizView from '../../components/quiz/QuizView';
+import ChangePasswordView from '@/components/profile/ChangePasswordView';
 
-const QuizScreen = () => {
+const ChangePasswordScreen = () => {
     return (
-        <QuizView />
+        <ChangePasswordView />
     );
 };
 
@@ -16,4 +16,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default QuizScreen;
+export default ChangePasswordScreen;

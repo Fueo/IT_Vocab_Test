@@ -96,7 +96,7 @@ const RegisterView = () => {
 
     const handleLoginPress = () => {
         if (router.canGoBack()) router.back();
-        else router.replace('/login');
+        else router.replace('/auth/login');
     };
 
     return (

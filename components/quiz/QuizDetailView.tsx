@@ -5,8 +5,8 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 // Import Components
 import theme from '../../theme';
 import { AppBanner } from '../core';
+import DetailHeader from '../core/AppDetailHeader';
 import ModeCard from './core/ModeCard';
-import CourseHeader from './core/QuizDetailHeader';
 
 const QuizDetailView = () => {
     const { id, title } = useLocalSearchParams();
@@ -26,7 +26,7 @@ const QuizDetailView = () => {
     return (
         <View style={styles.container}>
             {/* Header xử lý quay lại và tiêu đề */}
-            <CourseHeader
+            <DetailHeader
                 title={displayTitle}
                 subtitle="Choose your learning mode"
             />

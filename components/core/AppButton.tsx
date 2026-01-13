@@ -3,6 +3,7 @@ import React from 'react';
 import {
     ActivityIndicator,
     Image,
+    StyleProp, // Import thêm StyleProp
     StyleSheet,
     TouchableOpacity,
     TouchableOpacityProps,
@@ -17,8 +18,9 @@ interface AppButtonProps extends TouchableOpacityProps {
     variant?: 'primary' | 'google' | 'link' | 'outline';
     isLoading?: boolean;
     icon?: keyof typeof Ionicons.glyphMap;
-    iconRight?: boolean; // THÊM PROP NÀY
-    style?: ViewStyle;
+    iconRight?: boolean;
+    // SỬA LỖI Ở ĐÂY: Cho phép nhận mảng style (StyleProp) thay vì chỉ ViewStyle đơn lẻ
+    style?: StyleProp<ViewStyle>;
 }
 
 const AppButton: React.FC<AppButtonProps> = ({
@@ -27,7 +29,7 @@ const AppButton: React.FC<AppButtonProps> = ({
     variant = 'primary',
     isLoading = false,
     icon,
-    iconRight = false, // Mặc định là bên trái (false)
+    iconRight = false,
     disabled,
     style,
     ...props
@@ -59,7 +61,6 @@ const AppButton: React.FC<AppButtonProps> = ({
         }
 
         if (icon && variant !== 'google') {
-            // Kiểm tra vị trí icon để áp dụng style absolute tương ứng
             const isPositionMatch = (position === 'left' && !iconRight) || (position === 'right' && iconRight);
 
             if (isPositionMatch) {
@@ -117,7 +118,7 @@ const AppButton: React.FC<AppButtonProps> = ({
                     borderWidth: (variant === 'google' || variant === 'outline') ? 1 : 0,
                 },
                 variant === 'link' && styles.linkContainer,
-                style,
+                style, // Style truyền từ ngoài sẽ được ưu tiên ghi đè ở đây
             ]}
             {...props}
         >
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         width: '100%',
-        position: 'relative', // Quan trọng để các icon absolute canh theo đây
+        position: 'relative',
     },
     linkContainer: {
         width: 'auto',
@@ -148,11 +149,11 @@ const styles = StyleSheet.create({
     },
     absoluteIconLeft: {
         position: 'absolute',
-        left: 0, // Căn sát lề trái của contentWrapper (đã có padding ở container)
+        left: 0,
     },
     absoluteIconRight: {
         position: 'absolute',
-        right: 0, // Căn sát lề phải của contentWrapper
+        right: 0,
     },
     icon: {},
     googleIcon: {

@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 // Import Components
 import theme from '../../theme';
 import { AppButton, AppText } from '../core';
-import CourseHeader from './core/QuizDetailHeader';
+import DetailHeader from '../core/AppDetailHeader';
 import ReviewItem from './core/ReviewItem';
 import ReviewStats from './core/ReviewStats';
 
@@ -35,7 +35,7 @@ const ReviewAnswersView = () => {
 
     return (
         <View style={styles.container}>
-            <CourseHeader
+            <DetailHeader
                 title="Review Answers"
                 subtitle={`${correctCount} correct, ${incorrectCount} incorrect`}
             />

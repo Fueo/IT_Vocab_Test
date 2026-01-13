@@ -9,14 +9,15 @@ import {
     View,
     ViewStyle
 } from 'react-native';
-import theme from '../../theme'; // Đường dẫn trỏ về file index.ts của theme
+import theme from '../../theme';
 
 interface AppInputProps extends TextInputProps {
-    label?: string;              // Nhãn phía trên input (VD: Email)
-    icon?: keyof typeof Ionicons.glyphMap; // Tên icon bên trái (VD: mail-outline)
+    label?: string;              // Nhãn (VD: Email)
+    icon?: keyof typeof Ionicons.glyphMap; // Icon trái
     error?: string;              // Thông báo lỗi
     isPassword?: boolean;        // Chế độ mật khẩu
-    containerStyle?: ViewStyle;  // Style tùy chỉnh cho container ngoài cùng
+    containerStyle?: ViewStyle;  // Style container ngoài cùng
+    // Note: Prop 'multiline' và 'numberOfLines' đã có sẵn trong TextInputProps
 }
 
 const AppInput: React.FC<AppInputProps> = ({
@@ -25,38 +26,40 @@ const AppInput: React.FC<AppInputProps> = ({
     error,
     isPassword = false,
     containerStyle,
-    style, // Style của TextInput nếu muốn override
+    style,
     ...props
 }) => {
     const [isFocused, setIsFocused] = useState(false);
     const [isSecure, setIsSecure] = useState(isPassword);
 
-    // Xử lý màu viền: Lỗi (Đỏ) -> Focus (Xanh) -> Mặc định (Trong suốt hoặc cùng màu nền)
+    // Kiểm tra xem có đang dùng chế độ nhiều dòng không
+    const isMultiline = props.multiline;
+
+    // Xử lý màu viền
     const getBorderColor = () => {
         if (error) return theme.colors.error;
         if (isFocused) return theme.colors.primary;
-        return 'transparent'; // Mặc định không hiện viền
+        return 'transparent';
     };
-
-    // Màu nền input: Dựa vào ảnh, nền là màu xám rất nhạt
-    const backgroundColor = '#F3F4F6';
 
     return (
         <View style={[styles.wrapper, containerStyle]}>
-            {/* 1. Label phía trên */}
+            {/* 1. Label */}
             {label && (
                 <Text style={styles.label}>
                     {label}
                 </Text>
             )}
 
-            {/* 2. Input Container (Chứa Icon + Input + Eye) */}
+            {/* 2. Input Container */}
             <View
                 style={[
                     styles.inputContainer,
+                    // Style động dựa trên chế độ multiline
+                    isMultiline ? styles.inputContainerMultiline : styles.inputContainerSingle,
                     {
-                        backgroundColor: backgroundColor,
                         borderColor: getBorderColor(),
+                        backgroundColor: '#F3F4F6',
                     },
                 ]}
             >
@@ -64,25 +67,35 @@ const AppInput: React.FC<AppInputProps> = ({
                 {icon && (
                     <Ionicons
                         name={icon}
-                        size={20} // Kích thước icon chuẩn
-                        color={theme.colors.text.secondary} // Màu xám (#6B7280)
-                        style={styles.iconLeft}
+                        size={20}
+                        color={theme.colors.text.secondary}
+                        style={[
+                            styles.iconLeft,
+                            // Nếu nhiều dòng, đẩy icon xuống xíu để khớp dòng đầu tiên
+                            isMultiline && { marginTop: 2 }
+                        ]}
                     />
                 )}
 
-                {/* Text Input chính */}
+                {/* Text Input */}
                 <TextInput
-                    style={[styles.input, style]}
+                    style={[
+                        styles.input,
+                        // Style riêng cho nội dung bên trong
+                        isMultiline && styles.inputMultiline,
+                        style
+                    ]}
                     placeholderTextColor={theme.colors.text.secondary}
                     secureTextEntry={isPassword ? isSecure : false}
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
                     autoCapitalize="none"
+                    textAlignVertical={isMultiline ? 'top' : 'center'} // Quan trọng cho Android
                     {...props}
                 />
 
-                {/* Icon mắt (Ẩn/Hiện pass) bên phải */}
-                {isPassword && (
+                {/* Icon mắt (Chỉ hiện khi không phải multiline và là password) */}
+                {isPassword && !isMultiline && (
                     <TouchableOpacity
                         onPress={() => setIsSecure(!isSecure)}
                         style={styles.iconRight}
@@ -97,7 +110,7 @@ const AppInput: React.FC<AppInputProps> = ({
                 )}
             </View>
 
-            {/* 3. Thông báo lỗi bên dưới */}
+            {/* 3. Lỗi */}
             {error && (
                 <Text style={styles.errorText}>
                     {error}
@@ -109,40 +122,55 @@ const AppInput: React.FC<AppInputProps> = ({
 
 const styles = StyleSheet.create({
     wrapper: {
-        marginBottom: theme.spacing.md, // Khoảng cách giữa các input (16px)
+        marginBottom: theme.spacing.md,
     },
     label: {
-        fontFamily: theme.fonts.medium, // Poppins-Medium
-        fontSize: theme.fontSizes.sm,   // 14px
-        color: theme.colors.text.primary, // Màu đen (#1F2937)
-        marginBottom: theme.spacing.xs, // Khoảng cách nhỏ với input (4px)
+        fontFamily: theme.fonts.medium,
+        fontSize: theme.fontSizes.sm,
+        color: theme.colors.text.primary,
+        marginBottom: theme.spacing.xs,
     },
+    // --- Base Container Style ---
     inputContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
-        height: 52, // Chiều cao chuẩn cho input cảm ứng (khoảng 48-56px)
-        borderRadius: theme.radius.md, // Bo góc 12px theo radius.ts
-        borderWidth: 1, // Viền mỏng 1px (chỉ hiện màu khi focus/error)
-        paddingHorizontal: theme.spacing.md, // Padding 2 bên (16px)
+        borderRadius: theme.radius.md,
+        borderWidth: 1,
+        paddingHorizontal: theme.spacing.md,
     },
+    // --- Single Line Styles ---
+    inputContainerSingle: {
+        height: 52, // Chiều cao cố định
+        alignItems: 'center', // Căn giữa theo chiều dọc
+    },
+    // --- Multi Line Styles ---
+    inputContainerMultiline: {
+        minHeight: 120, // Chiều cao tối thiểu lớn hơn
+        alignItems: 'flex-start', // Căn lên trên cùng
+        paddingVertical: theme.spacing.md, // Thêm padding trên dưới
+    },
+    // --- Input Styles ---
     input: {
-        flex: 1, // Chiếm hết không gian còn lại
-        fontFamily: theme.fonts.regular, // Poppins-Regular
-        fontSize: theme.fontSizes.sm,    // 14px
-        color: theme.colors.text.primary, // Màu chữ khi nhập
-        height: '100%',
+        flex: 1,
+        fontFamily: theme.fonts.regular,
+        fontSize: theme.fontSizes.sm,
+        color: theme.colors.text.primary,
+        height: '100%', // Chiếm hết chiều cao container
+        padding: 0, // Reset padding mặc định của Android
+    },
+    inputMultiline: {
+        marginTop: -2, // Tinh chỉnh nhỏ để khớp với dòng text đầu tiên
     },
     iconLeft: {
-        marginRight: theme.spacing.sm, // Cách text input 8px
+        marginRight: theme.spacing.sm,
     },
     iconRight: {
-        marginLeft: theme.spacing.sm, // Cách text input 8px
+        marginLeft: theme.spacing.sm,
     },
     errorText: {
         fontFamily: theme.fonts.regular,
-        fontSize: theme.fontSizes.xs, // 12px
-        color: theme.colors.error,    // Màu đỏ (#FB7181)
-        marginTop: theme.spacing.xxs, // 2px
+        fontSize: theme.fontSizes.xs,
+        color: theme.colors.error,
+        marginTop: theme.spacing.xxs,
     }
 });
 

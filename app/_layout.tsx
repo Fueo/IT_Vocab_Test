@@ -1,10 +1,13 @@
 import theme from '@/theme';
+import Constants from 'expo-constants'; // Import Constants để lấy chiều cao
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
+import { StatusBar } from 'expo-status-bar'; // Import StatusBar từ expo
 import { useEffect } from 'react';
-// Giữ màn hình splash visible cho đến khi font load xong (optional nhưng khuyên dùng)
+import { View } from 'react-native'; // Import View
+
+// Giữ màn hình splash visible cho đến khi font load xong
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -23,34 +26,60 @@ export default function RootLayout() {
 
   if (!loaded && !error) return null;
 
+  // Lấy chiều cao status bar của thiết bị
+  const statusBarHeight = Constants.statusBarHeight;
+
   return (
     <>
+      {/* 1. Cấu hình Status Bar thật: Trong suốt hoàn toàn, chữ màu trắng (light) */}
       <StatusBar
-        style="dark"
-        backgroundColor={theme.colors.background} // Màu nền (chỉ tác dụng Android)
-        translucent={false} // false: Nội dung nằm DƯỚI status bar (không bị chìm)
+        style="light"
+        translucent={true}
+        backgroundColor="transparent"
       />
+
+      {/* 2. Stack Navigation chứa nội dung ứng dụng */}
       <Stack screenOptions={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: theme.colors.background } }}>
         <Stack.Screen name="welcome" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="register" />
+        <Stack.Screen name="auth/login" />
+        <Stack.Screen name="auth/register" />
         <Stack.Screen name="tabs" options={{ headerShown: false }} />
         <Stack.Screen
           name="course/[id]"
           options={{
-            headerShown: false, // Ẩn header native vì mình đã có CourseHeader
-            presentation: 'card' // Kiểu hiển thị card tiêu chuẩn
+            headerShown: false,
+            presentation: 'card'
           }}
         />
-
         <Stack.Screen
           name="game/[id]"
           options={{
             headerShown: false,
-            gestureEnabled: false // Tắt vuốt lui để bắt buộc dùng nút X
+            gestureEnabled: false
+          }}
+        />
+        <Stack.Screen
+          name="dictionary/[id]"
+          options={{
+            headerShown: false,
+            gestureEnabled: false
           }}
         />
       </Stack>
+
+      {/* 3. Lớp phủ (Overlay) giả làm nền Status Bar */}
+      <View
+        pointerEvents="none" // Quan trọng: Để cho phép chạm xuyên qua (không chặn thao tác vuốt status bar của iOS)
+        style={{
+          height: statusBarHeight, // Chiều cao tự động theo tai thỏ/màn hình
+          width: '100%',
+          backgroundColor: 'rgba(0, 0, 0, 0.3)', // Màu đen mờ (chỉnh 0.3 đậm nhạt tùy ý)
+          position: 'absolute', // Nằm đè lên
+          top: 0,
+          left: 0,
+          zIndex: 9999, // Đảm bảo luôn nằm trên cùng
+        }}
+      />
     </>
   );
 }

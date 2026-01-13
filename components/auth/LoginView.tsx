@@ -62,12 +62,16 @@ const LoginView = () => {
         }
     };
 
+    const handleForgetPassword = () => {
+        router.push('/auth/forgetpassword');
+    };
+
     const handleGuestLogin = () => {
         router.replace('/tabs/quiz');
     };
 
     const handleNavigateRegister = () => {
-        router.push('/register');
+        router.push('/auth/register');
     };
 
     return (
@@ -134,7 +138,7 @@ const LoginView = () => {
 
                     <TouchableOpacity
                         style={styles.forgotPassword}
-                        onPress={() => {/* Forgot Password logic */ }}
+                        onPress={handleForgetPassword}
                     >
                         <AppText size="sm" color={theme.colors.secondary} weight="bold">
                             Forgot password?

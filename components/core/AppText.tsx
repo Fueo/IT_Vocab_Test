@@ -1,13 +1,13 @@
-import React from 'react';
-import { Text, TextProps, TextStyle } from 'react-native';
-import theme from '../../theme'; // Import từ file index.ts của bạn
+import React, { memo } from 'react';
+import { StyleProp, Text, TextProps, TextStyle } from 'react-native';
+import theme from '../../theme'; // Đảm bảo đường dẫn này đúng với cấu trúc dự án của bạn
 
-interface AppTextProps extends TextProps {
-    children: React.ReactNode;
-    size?: keyof typeof theme.fontSizes; // 'xs' | 'sm' | ... | 'title'
-    weight?: keyof typeof theme.fonts;   // 'regular' | 'medium' | ...
+export interface AppTextProps extends TextProps {
+    children?: React.ReactNode;
+    size?: keyof typeof theme.fontSizes;
+    weight?: keyof typeof theme.fonts;
     color?: string;
-    style?: TextStyle;
+    style?: StyleProp<TextStyle>;
     centered?: boolean;
 }
 
@@ -27,7 +27,7 @@ const AppText: React.FC<AppTextProps> = ({
                     fontSize: theme.fontSizes[size],
                     fontFamily: theme.fonts[weight],
                     color: color,
-                    textAlign: centered ? 'center' : 'auto',
+                    textAlign: centered ? 'center' : 'left',
                 },
                 style,
             ]}
@@ -38,4 +38,4 @@ const AppText: React.FC<AppTextProps> = ({
     );
 };
 
-export default AppText;
+export default memo(AppText);

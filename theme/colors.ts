@@ -22,7 +22,8 @@ const colors = {
     // Màu cho các chấm dot slide
     dotActive: '#5BC236',
     dotInactive: '#E0E0E0',
-
+    warning: '#D97706', // Màu cam đậm cho text Intermediate
+    warningLight: '#F59E0B', // Màu nền Intermediate (ảnh mẫu d68e2c)
     text: {
         primary: '#1F2937',
         secondary: '#6B7280',
@@ -38,8 +39,9 @@ const colors = {
     },
 
     success: '#22C55E', // Giữ nguyên màu xanh success chuẩn
-    error: '#FB7181',   // Giữ nguyên
+    error: '#ff001e',   // Giữ nguyên
     border: '#E5E7EB',  // Màu viền nhạt cho light mode
+    black: '#000000',
 };
 
 export default colors;

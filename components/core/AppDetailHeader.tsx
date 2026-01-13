@@ -3,15 +3,15 @@ import { router } from 'expo-router';
 import React from 'react';
 import { Platform, StatusBar as RNStatusBar, SafeAreaView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
-import theme from '../../../theme';
-import { AppText } from '../../core';
+import { AppText } from '.';
+import theme from '../../theme';
 
 interface CourseHeaderProps {
     title: string;
     subtitle?: string;
 }
 
-const CourseHeader: React.FC<CourseHeaderProps> = ({ title, subtitle }) => {
+const DetailHeader: React.FC<CourseHeaderProps> = ({ title, subtitle }) => {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
@@ -61,4 +61,4 @@ const styles = StyleSheet.create({
     }
 });
 
-export default CourseHeader;
+export default DetailHeader;

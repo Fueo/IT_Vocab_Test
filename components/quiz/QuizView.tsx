@@ -4,7 +4,7 @@ import { FlatList, StyleSheet, View } from 'react-native';
 
 // Import các thành phần từ Design System và UI
 import theme from '../../theme';
-import { AppHeader, AppText } from '../core';
+import { AppText, HomeHeader } from '../core';
 import CategorySelector from '../core/CategorySelector';
 import HomeLevelCard from './core/HomeLevelCard';
 import HomeStreakBadge from './core/HomeStreakBadge';
@@ -51,7 +51,7 @@ const QuizView = () => {
                 // --- HEADER SECTION ---
                 ListHeaderComponent={
                     <>
-                        <AppHeader
+                        <HomeHeader
                             title={`Hi, ${userName}!`}
                             subtitle="Keep up the great work!"
                             rightComponent={<HomeStreakBadge streakDays={streakDays} />}

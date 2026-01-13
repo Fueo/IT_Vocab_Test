@@ -8,28 +8,29 @@ import {
     View
 } from 'react-native';
 
-// Import Components từ thư mục core
+// Import Components từ core
 import theme from '../../theme';
 import {
-    AppHeader,
     AppInput,
     AppListEmpty,
     AppListFooter,
     AppText,
-    CategorySelector
+    CategorySelector,
+    HomeHeader
 } from '../core';
-import WordCard from './WordCard';
+import WordCard from './core/WordCard';
 
 // ==========================================
-// MOCK API SERVICE
+// INTERFACE & MOCK API
 // ==========================================
-interface DictionaryItem {
+export interface DictionaryItem {
     id: string;
     term: string;
     phonetic: string;
     definition: string;
-    level: string;
+    level: 'beginner' | 'intermediate' | 'advanced';
     category: string;
+    example?: string; // Bổ sung để truyền sang Detail
 }
 
 const fetchDictionaryApi = async (page: number, limit: number, category: string, search: string) => {
@@ -37,10 +38,11 @@ const fetchDictionaryApi = async (page: number, limit: number, category: string,
         setTimeout(() => {
             const ALL_DATA = Array.from({ length: 100 }).map((_, i) => ({
                 id: `server_item_${i}`,
-                term: i % 2 === 0 ? `Server Term ${i}` : `API Function ${i}`,
-                phonetic: '/ˈsəːvə/',
-                definition: `Technical definition for ${i}. Context: ${category}`,
-                level: i % 3 === 0 ? 'beginner' : 'intermediate',
+                term: i % 2 === 0 ? `Variable ${i}` : `API ${i}`,
+                phonetic: i % 2 === 0 ? "/'ver.i.ə.bəl/" : "/ˌeɪ.pi.ˈaɪ/",
+                definition: `Technical definition for item ${i}.`,
+                example: i % 2 === 0 ? "let x = 10, we can see it;" : "We use the Twitter API.",
+                level: (i % 3 === 0 ? 'beginner' : (i % 3 === 1 ? 'intermediate' : 'advanced')) as any,
                 category: i % 4 === 0 ? 'Programming' : (i % 4 === 1 ? 'Web' : 'Security')
             }));
 
@@ -81,7 +83,6 @@ const DictionaryView = () => {
     const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
     const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
 
-    // Logic gọi API
     const loadData = async (page: number, type: 'init' | 'refresh' | 'loadMore' = 'init') => {
         if (type === 'init') setIsLoading(true);
         else if (type === 'loadMore') setIsLoadingMore(true);
@@ -106,13 +107,12 @@ const DictionaryView = () => {
         }
     };
 
-    // Effects
+    // Effects xử lý Filter & Search
     useEffect(() => {
         setCurrentPage(1);
         loadData(1, 'init');
     }, [selectedCategory]);
 
-    // Search với Debounce logic (Client-side trigger)
     useEffect(() => {
         const timer = setTimeout(() => {
             setCurrentPage(1);
@@ -128,7 +128,7 @@ const DictionaryView = () => {
     };
 
     const handleLoadMore = () => {
-        if (!hasMore || isLoadingMore || isLoading) return;
+        if (!hasMore || isLoadingMore || isLoading || isRefreshing) return;
         const nextPage = currentPage + 1;
         setCurrentPage(nextPage);
         loadData(nextPage, 'loadMore');
@@ -161,9 +161,9 @@ const DictionaryView = () => {
                 }
                 ListHeaderComponent={
                     <>
-                        <AppHeader
+                        <HomeHeader
                             title="Dictionary"
-                            subtitle="Backend Pagination"
+                            subtitle="Search IT vocabulary"
                             rightIcon="book-outline"
                             bottomContent={
                                 <AppInput
@@ -213,12 +213,15 @@ const DictionaryView = () => {
                 }
                 renderItem={({ item }) => (
                     <View style={styles.itemWrapper}>
+                        {/* TRUYỀN TOÀN BỘ ITEM ĐỂ WORDCARD XỬ LÝ CHUYỂN HƯỚNG */}
                         <WordCard
+                            id={item.id}
                             term={item.term}
                             phonetic={item.phonetic}
                             definition={item.definition}
-                            level={item.level as any}
+                            level={item.level}
                             category={item.category}
+                            example={item.example} // Truyền để Detail có dữ liệu ngay
                             isBookmarked={bookmarks.has(item.id)}
                             onBookmarkPress={() => toggleBookmark(item.id)}
                         />
