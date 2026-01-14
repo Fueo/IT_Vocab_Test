@@ -50,7 +50,7 @@ const AppDialog: React.FC<AppDialogProps> = ({
 
             case 'error':
                 return {
-                    icon: 'close-circle-outline', // ✅ tồn tại
+                    icon: 'alert-circle', // ✅ tồn tại
                     color: theme.colors.error, // Đỏ
                     bgColor: '#FEF2F2',
                     defaultBtn: 'Try Again',
@@ -66,7 +66,7 @@ const AppDialog: React.FC<AppDialogProps> = ({
 
             case 'confirm':
                 return {
-                    icon: 'help-circle-outline', // ✅ tồn tại
+                    icon: 'help-sharp', // ✅ tồn tại
                     color: isDestructive
                         ? theme.colors.error
                         : theme.colors.primary,
@@ -116,7 +116,7 @@ const AppDialog: React.FC<AppDialogProps> = ({
 
                             {/* 2. Text Content */}
                             <View style={styles.textContainer}>
-                                <AppText size="lg" weight="bold" centered style={{ marginBottom: 8 }}>
+                                <AppText size="lg" weight="bold" centered style={{ marginBottom: 8 }} color={theme.colors.text.primary}>
                                     {title}
                                 </AppText>
                                 {message && (

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -8,12 +9,17 @@ import {
     ScrollView,
     StyleSheet,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
 
 import theme from '../../theme';
-// Import các component core, bao gồm AppButton mới
-import { AppButton, AppDetailHeader, AppInput, AppText } from '../core';
+import {
+    AppButton,
+    AppDetailHeader,
+    AppInput,
+    AppText,
+    AvatarPickerSheet,
+} from '../core';
 import UserAvatar from './core/UserAvatar';
 
 const EditProfileView = () => {
@@ -21,24 +27,33 @@ const EditProfileView = () => {
     const [name, setName] = useState('Guest User');
     const [email, setEmail] = useState('guest@itvocabmaster.com');
     const [phone, setPhone] = useState('0914852199');
-    const [avatarUrl, setAvatarUrl] = useState("https://cdn-icons-png.freepik.com/512/6858/6858504.png");
+    const [avatarUrl, setAvatarUrl] = useState(
+        'https://cdn-icons-png.freepik.com/512/6858/6858504.png'
+    );
 
     // --- State UI ---
     const [isSaving, setIsSaving] = useState(false);
+    const [showImagePicker, setShowImagePicker] = useState(false);
 
-    // State lưu lỗi
+    // --- State lỗi ---
     const [errors, setErrors] = useState({
         name: '',
         email: '',
-        phone: ''
+        phone: '',
     });
 
-    // --- Validation Helpers ---
-    const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    const isValidPhone = (phone: string) => /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/.test(phone);
+    // --- Validation ---
+    const isValidEmail = (email: string) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-    // --- Helper: Xóa lỗi khi người dùng nhập liệu ---
-    const handleChange = (field: keyof typeof errors, value: string) => {
+    const isValidPhone = (phone: string) =>
+        /^[0-9]{9,11}$/.test(phone);
+
+    // --- Xử lý input ---
+    const handleChange = (
+        field: keyof typeof errors,
+        value: string
+    ) => {
         if (field === 'name') setName(value);
         if (field === 'email') setEmail(value);
         if (field === 'phone') setPhone(value);
@@ -48,23 +63,23 @@ const EditProfileView = () => {
         }
     };
 
-    // --- Handlers ---
+    // --- Save ---
     const handleSave = async () => {
         let newErrors = { name: '', email: '', phone: '' };
         let hasError = false;
 
         if (!name.trim()) {
-            newErrors.name = "Full name cannot be empty.";
+            newErrors.name = 'Full name cannot be empty.';
             hasError = true;
         }
 
         if (!isValidEmail(email)) {
-            newErrors.email = "Please enter a valid email address.";
+            newErrors.email = 'Please enter a valid email address.';
             hasError = true;
         }
 
         if (!isValidPhone(phone)) {
-            newErrors.phone = "Please enter a valid phone number.";
+            newErrors.phone = 'Please enter a valid phone number.';
             hasError = true;
         }
 
@@ -73,35 +88,57 @@ const EditProfileView = () => {
 
         setIsSaving(true);
         try {
-            // Mock API call
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            Alert.alert("Success", "Profile updated successfully!", [
-                { text: "OK", onPress: () => router.back() }
+            await new Promise(resolve => setTimeout(resolve, 1200));
+            Alert.alert('Success', 'Profile updated successfully!', [
+                { text: 'OK', onPress: () => router.back() },
             ]);
-        } catch (error) {
-            Alert.alert("Error", "Failed to update profile.");
+        } catch {
+            Alert.alert('Error', 'Failed to update profile.');
         } finally {
             setIsSaving(false);
         }
     };
 
-    const handlePickImage = () => {
-        Alert.alert("Upload Photo", "Open gallery/camera logic here");
+    // ✅ Xin quyền + mở picker
+    const handleEditAvatar = async () => {
+        try {
+            const { status } =
+                await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+            if (status !== 'granted') {
+                Alert.alert(
+                    'Permission required',
+                    'Please allow photo access to change avatar.'
+                );
+                return;
+            }
+
+            setShowImagePicker(true);
+        } catch (e) {
+            console.warn('Permission error:', e);
+        }
+    };
+
+    // Nhận ảnh từ AvatarPickerSheet
+    const handleImageSelected = (uri: string) => {
+        setAvatarUrl(uri);
+        setShowImagePicker(false);
+        // TODO: upload avatar lên server
     };
 
     return (
         <View style={styles.container}>
-            {/* Sử dụng AppDetailHeader thay vì AppHeader để đồng bộ */}
             <AppDetailHeader title="Edit Profile" />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
             >
-                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-                    {/* AVATAR SECTION */}
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* AVATAR */}
                     <View style={styles.avatarSection}>
                         <View style={styles.avatarWrapper}>
                             <UserAvatar
@@ -109,25 +146,31 @@ const EditProfileView = () => {
                                 size={120}
                                 imageUrl={avatarUrl}
                             />
+
                             <TouchableOpacity
-                                style={styles.cameraButton}
-                                onPress={handlePickImage}
+                                style={styles.editIconBtn}
+                                onPress={handleEditAvatar}
                                 activeOpacity={0.8}
                             >
-                                <Ionicons name="camera" size={20} color="white" />
+                                <Ionicons name="pencil" size={18} color="#fff" />
                             </TouchableOpacity>
                         </View>
-                        <AppText size="sm" color={theme.colors.text.secondary} style={{ marginTop: 12 }}>
+
+                        <AppText
+                            size="sm"
+                            color={theme.colors.text.secondary}
+                            style={{ marginTop: 12 }}
+                        >
                             Change Profile Picture
                         </AppText>
                     </View>
 
-                    {/* FORM FIELDS */}
+                    {/* FORM */}
                     <View style={styles.formContainer}>
                         <AppInput
                             label="FULL NAME"
                             value={name}
-                            onChangeText={(val) => handleChange('name', val)}
+                            onChangeText={val => handleChange('name', val)}
                             placeholder="Enter your name"
                             icon="person-outline"
                             error={errors.name}
@@ -136,7 +179,7 @@ const EditProfileView = () => {
                         <AppInput
                             label="EMAIL"
                             value={email}
-                            onChangeText={(val) => handleChange('email', val)}
+                            onChangeText={val => handleChange('email', val)}
                             placeholder="Enter your email"
                             icon="mail-outline"
                             keyboardType="email-address"
@@ -146,7 +189,7 @@ const EditProfileView = () => {
                         <AppInput
                             label="PHONE NUMBER"
                             value={phone}
-                            onChangeText={(val) => handleChange('phone', val)}
+                            onChangeText={val => handleChange('phone', val)}
                             placeholder="Enter phone number"
                             icon="call-outline"
                             keyboardType="phone-pad"
@@ -154,21 +197,27 @@ const EditProfileView = () => {
                         />
                     </View>
 
-                    {/* REPLACED HARDCODED BUTTON WITH APP BUTTON */}
                     <AppButton
                         title="Save Changes"
                         onPress={handleSave}
                         isLoading={isSaving}
                         disabled={isSaving}
                         variant="primary"
-                        style={{ marginTop: theme.spacing.sm }}
                     />
-
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* AVATAR PICKER */}
+            <AvatarPickerSheet
+                visible={showImagePicker}
+                onClose={() => setShowImagePicker(false)}
+                onImageSelected={handleImageSelected}
+            />
         </View>
     );
 };
+
+export default EditProfileView;
 
 const styles = StyleSheet.create({
     container: {
@@ -185,7 +234,7 @@ const styles = StyleSheet.create({
     avatarWrapper: {
         position: 'relative',
     },
-    cameraButton: {
+    editIconBtn: {
         position: 'absolute',
         bottom: 0,
         right: 0,
@@ -197,19 +246,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 3,
         borderColor: '#F9FAFB',
+        elevation: 2,
     },
     formContainer: {
-        backgroundColor: 'white',
+        backgroundColor: '#fff',
         borderRadius: theme.radius.lg,
         padding: theme.spacing.md,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
         elevation: 1,
         marginBottom: theme.spacing.lg,
     },
-    // Đã xóa styles.saveButton và styles.saveButtonDisabled
 });
-
-export default EditProfileView;

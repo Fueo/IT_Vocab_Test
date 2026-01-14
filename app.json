@@ -13,14 +13,19 @@
       "backgroundColor": "#FFFFFF"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Ứng dụng cần truy cập camera để bạn chụp ảnh đại diện.",
+        "NSPhotoLibraryUsageDescription": "Ứng dụng cần truy cập thư viện ảnh để bạn chọn ảnh đại diện."
+      }
     },
     "android": {
+      "package": "com.anonymous.it_vocab_test",
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "monochromeImage": "./assets/images/android-icon-monochrome.png",
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -29,12 +34,6 @@
         "backgroundColor": "#FFFFFF",
         "style": "dark"
       }
-    },
-    "fonts": {
-      "Poppins-Regular": "./assets/fonts/Poppins-Regular.ttf",
-      "Poppins-Medium": "./assets/fonts/Poppins-Medium.ttf",
-      "Poppins-SemiBold": "./assets/fonts/Poppins-SemiBold.ttf",
-      "Poppins-Bold": "./assets/fonts/Poppins-Bold.ttf"
     },
     "web": {
       "output": "static",
@@ -46,6 +45,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "35d6b55f-948e-402f-8700-7342e13eebbd"
+      }
     }
   }
 }

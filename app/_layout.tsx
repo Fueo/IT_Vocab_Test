@@ -73,7 +73,7 @@ export default function RootLayout() {
         style={{
           height: statusBarHeight, // Chiều cao tự động theo tai thỏ/màn hình
           width: '100%',
-          backgroundColor: 'rgba(0, 0, 0, 0.3)', // Màu đen mờ (chỉnh 0.3 đậm nhạt tùy ý)
+          backgroundColor: 'rgba(0, 0, 0, 0.1)', // Màu đen mờ (chỉnh 0.3 đậm nhạt tùy ý)
           position: 'absolute', // Nằm đè lên
           top: 0,
           left: 0,

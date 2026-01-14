@@ -1,19 +1,46 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Image, ImageSourcePropType, StyleSheet, View } from 'react-native';
 import theme from '../../../theme';
 import AppText from '../../core/AppText';
+
+type FrameId = 'frame1' | 'frame2' | 'frame3' | 'frame4' | 'frame5' | 'frame6';
+
+// ✅ FRAME LIBRARY ngay trong component file
+const FRAME_LIBRARY: Record<FrameId, ImageSourcePropType> = {
+    frame1: require('../../../media/frames/avatar_frame1.png'),
+    frame2: require('../../../media/frames/avatar_frame2.png'),
+    frame3: require('../../../media/frames/avatar_frame3.png'),
+    frame4: require('../../../media/frames/avatar_frame4.png'),
+    frame5: require('../../../media/frames/avatar_frame5.png'),
+    frame6: require('../../../media/frames/avatar_frame6.png'),
+};
+
+const getFrameSource = (frameId?: string) => {
+    if (!frameId) return undefined;
+    return FRAME_LIBRARY[frameId as FrameId];
+};
 
 interface UserAvatarProps {
     initials?: string;
     imageUrl?: string;
     size?: number;
 
-    // Truyền trực tiếp ảnh vào (hoặc null/undefined nếu không muốn hiện khung)
+    /**
+     * ✅ Chỉ cần truyền tên frame: "frame1" | "frame2" | ...
+     * Ví dụ: <UserAvatar frameId="frame2" />
+     */
+    frameId?: FrameId;
+
+    /**
+     * (Optional) Truyền trực tiếp source nếu muốn.
+     * Nếu có frameSource thì sẽ ưu tiên frameSource hơn frameId.
+     */
     frameSource?: ImageSourcePropType;
 
-    // Tùy chỉnh độ to nhỏ của avatar bên trong
+    // Scale avatar khi có khung
     avatarScale?: number;
 
+    // Badge / icon overlay
     children?: React.ReactNode;
 }
 
@@ -21,36 +48,46 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
     initials = 'U',
     imageUrl,
     size = 100,
+
+    frameId,
     frameSource,
+
     avatarScale = 0.82,
     children,
 }) => {
-    // Logic scale: Nếu không có khung, avatar to 100%. Có khung thì thu nhỏ lại (0.82)
-    const finalScale = frameSource ? avatarScale : 1;
+    // ✅ resolve frame source: ưu tiên frameSource, nếu không có thì dùng frameId
+    const resolvedFrameSource = useMemo(() => {
+        return frameSource ?? getFrameSource(frameId);
+    }, [frameSource, frameId]);
+
+    // Nếu có khung thì avatar nhỏ lại, không có khung thì full size
+    const finalScale = resolvedFrameSource ? avatarScale : 1;
 
     const avatarSize = size * finalScale;
     const avatarRadius = avatarSize / 2;
     const fontSize = avatarSize * 0.4;
 
-    // --- RENDER AVATAR ---
     const renderAvatarContent = () => (
-        <View style={[
-            styles.avatarContainer,
-            { width: avatarSize, height: avatarSize, borderRadius: avatarRadius },
-
-            // LOGIC QUAN TRỌNG:
-            // - Nếu KHÔNG có frameSource -> Áp dụng style viền trắng + bóng đổ.
-            // - Nếu CÓ frameSource -> Không áp dụng gì cả (viền = 0).
-            !frameSource && styles.classicBorder
-        ]}>
+        <View
+            style={[
+                styles.avatarContainer,
+                {
+                    width: avatarSize,
+                    height: avatarSize,
+                    borderRadius: avatarRadius,
+                    borderWidth: 1,
+                    borderColor: '#FFFFFF',
+                },
+            ]}
+        >
             {imageUrl ? (
                 <Image
                     source={{ uri: imageUrl }}
-                    style={{ width: '100%', height: '100%' }}
+                    style={styles.avatarImage}
                     resizeMode="cover"
                 />
             ) : (
-                <View style={[styles.placeholder, { backgroundColor: theme.colors.background }]}>
+                <View style={styles.placeholder}>
                     <AppText
                         size="huge"
                         weight="bold"
@@ -66,36 +103,31 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
 
     return (
         <View style={[styles.root, { width: size, height: size }]}>
-
-            {/* LAYER 1: AVATAR USER */}
+            {/* Avatar */}
             <View style={styles.centerLayer}>
                 {renderAvatarContent()}
             </View>
 
-            {/* LAYER 2: KHUNG ẢNH (Chỉ render nếu có source) */}
-            {frameSource && (
+            {/* Frame */}
+            {resolvedFrameSource && (
                 <Image
-                    source={frameSource}
+                    source={resolvedFrameSource}
                     style={[styles.frameImage, { width: size, height: size }]}
                     resizeMode="contain"
                 />
             )}
 
-            {/* LAYER 3: BADGE */}
-            {children && (
-                <View style={styles.badgeContainer}>
-                    {children}
-                </View>
-            )}
+            {/* Badge */}
+            {children && <View style={styles.badgeContainer}>{children}</View>}
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     root: {
+        position: 'relative',
         justifyContent: 'center',
         alignItems: 'center',
-        position: 'relative',
         marginBottom: 10,
     },
     centerLayer: {
@@ -106,20 +138,11 @@ const styles = StyleSheet.create({
     },
     avatarContainer: {
         overflow: 'hidden',
-        backgroundColor: 'white', // Nền trắng để lót ảnh nếu ảnh user trong suốt
-        // Mặc định không có border ở đây
+        backgroundColor: 'transparent',
     },
-    // Style này CHỈ áp dụng khi không có khung
-    classicBorder: {
-        borderWidth: 1,
-        borderColor: 'white',
-
-        // Shadow giúp avatar nổi lên nền khi không có khung
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 3.84,
-        elevation: 5,
+    avatarImage: {
+        width: '100%',
+        height: '100%',
     },
     placeholder: {
         width: '100%',

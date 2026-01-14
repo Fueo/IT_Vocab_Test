@@ -8,6 +8,7 @@ export { default as AppInput } from './AppInput';
 export { default as AppListEmpty } from './AppListEmpty';
 export { default as AppListFooter } from './AppListFooter';
 export { default as AppText } from './AppText';
+export { default as AvatarPickerSheet } from './AvatarPickerSheet';
 export { default as CategorySelector } from './CategorySelector';
 export { default as HomeHeader } from './HomeHeader';
 export { default as MenuItem } from './MenuItem';

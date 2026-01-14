@@ -2,41 +2,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ImageSourcePropType, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
-// Import Themes & Core Components
 import theme from '../../theme';
 import { AppDialog, AppText, HomeHeader, MenuItem } from '../core';
 import HomeLevelCard from '../quiz/core/HomeLevelCard';
 
-// Import Custom Components
 import RankBadge from './core/RankBadge';
 import UserAvatar from './core/UserAvatar';
 
-// ---------------------------------------------------------
-// 1. CONFIG: TỪ ĐIỂN KHUNG
-// ---------------------------------------------------------
-const FRAME_LIBRARY: Record<string, ImageSourcePropType> = {
-    'frame1': require('../../media/frames/avatar_frame1.png'),
-    'frame2': require('../../media/frames/avatar_frame2.png'),
-    'frame3': require('../../media/frames/avatar_frame3.png'),
-    'frame4': require('../../media/frames/avatar_frame4.png'),
-    'frame5': require('../../media/frames/avatar_frame5.png'),
-    'frame6': require('../../media/frames/avatar_frame6.png'),
-    'frame7': require('../../media/frames/avatar_frame7.png'),
-};
-
-const getFrameSource = (frameId?: string) => {
-    if (!frameId) return undefined;
-    return FRAME_LIBRARY[frameId];
-};
-
-// ---------------------------------------------------------
 interface UserData {
     name: string;
     email: string;
     rank: string;
-    equippedFrame: string;
+    equippedFrame: string; // "frame1" | "frame2" ...
     avatarUrl: string;
     stats: {
         streak: string;
@@ -48,7 +27,6 @@ interface UserData {
     joinDate: string;
 }
 
-// --- Component con: Stat Card ---
 interface StatCardProps {
     icon: keyof typeof Ionicons.glyphMap;
     value: string;
@@ -58,12 +36,7 @@ interface StatCardProps {
 
 const StatCard: React.FC<StatCardProps> = ({ icon, value, label, iconColor }) => (
     <View style={styles.statCard}>
-        <Ionicons
-            name={icon}
-            size={theme.iconSizes.lgx}
-            color={iconColor}
-            style={styles.statIcon}
-        />
+        <Ionicons name={icon} size={theme.iconSizes.lgx} color={iconColor} style={styles.statIcon} />
         <AppText size="lg" weight="bold" color={theme.colors.text.primary}>
             {value}
         </AppText>
@@ -73,59 +46,46 @@ const StatCard: React.FC<StatCardProps> = ({ icon, value, label, iconColor }) =>
     </View>
 );
 
+const MOCK_USER: UserData = {
+    name: 'Guest User',
+    email: 'guest@itvocabmaster.com',
+    rank: 'gold',
+    equippedFrame: 'frame2',
+    avatarUrl: 'https://cdn-icons-png.freepik.com/512/6858/6858504.png',
+    stats: {
+        streak: '7',
+        bestStreak: '15',
+        lessons: '8',
+        words: '124',
+        accuracy: '85%',
+    },
+    joinDate: 'December 2025',
+};
+
 const ProfileView = () => {
-    // 1. Khởi tạo State
     const [userData, setUserData] = useState<UserData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-
-    // 2. State điều khiển Dialog Log Out
     const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
-    const handleFeedbackPress = () => {
-        router.push('/profile/send-feedback');
-    };
-    const handleSettingsPress = () => {
-        router.push('/profile/setting');
-    };
+    const goFeedback = () => router.push('/profile/send-feedback');
+    const goSettings = () => router.push('/profile/setting');
 
-    // Hàm khi bấm nút Log Out -> Chỉ hiện Dialog
-    const handleLogOutPress = () => {
-        setShowLogoutDialog(true);
-    };
+    const openLogout = () => setShowLogoutDialog(true);
+    const closeLogout = () => setShowLogoutDialog(false);
 
-    // Hàm thực sự Log Out khi người dùng chọn "Yes"
     const confirmLogOut = () => {
-        setShowLogoutDialog(false);
-        // Thực hiện logic xóa token/dữ liệu ở đây nếu cần
+        closeLogout();
         router.replace('/auth/login');
     };
 
-    // 3. Sử dụng useEffect để lấy dữ liệu
     useEffect(() => {
         const fetchUserData = async () => {
             try {
                 setIsLoading(true);
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                const mockData: UserData = {
-                    name: "Guest User",
-                    email: "guest@itvocabmaster.com",
-                    rank: "gold",
-                    equippedFrame: "frame2",
-                    avatarUrl: "https://cdn-icons-png.freepik.com/512/6858/6858504.png",
-                    stats: {
-                        streak: "7",
-                        bestStreak: "15",
-                        lessons: "8",
-                        words: "124",
-                        accuracy: "85%"
-                    },
-                    joinDate: "December 2025"
-                };
-
-                setUserData(mockData);
-            } catch (error) {
-                console.error("Failed to fetch user data", error);
+                await new Promise((r) => setTimeout(r, 500));
+                setUserData(MOCK_USER);
+            } catch (e) {
+                console.error('Failed to fetch user data', e);
             } finally {
                 setIsLoading(false);
             }
@@ -142,19 +102,13 @@ const ProfileView = () => {
         );
     }
 
-    const currentFrameSource = getFrameSource(userData.equippedFrame);
-
     return (
         <View style={styles.container}>
-            <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-            >
-                {/* APP HEADER */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 <HomeHeader
                     title="Profile"
                     rightIcon="settings-outline"
-                    onRightIconPress={handleSettingsPress}
+                    onRightIconPress={goSettings}
                     showRightIconBackground={false}
                     bottomContent={
                         <View style={styles.userInfoContainer}>
@@ -162,7 +116,7 @@ const ProfileView = () => {
                                 initials={userData.name.charAt(0)}
                                 size={120}
                                 imageUrl={userData.avatarUrl}
-                                frameSource={currentFrameSource}
+                                frameId={userData.equippedFrame as any} // nếu bạn đã type FrameId ở UserAvatar thì cast sang FrameId cho chuẩn
                             >
                                 <RankBadge rank={userData.rank as any} />
                             </UserAvatar>
@@ -177,28 +131,47 @@ const ProfileView = () => {
                     }
                 />
 
-                {/* LEVEL CARD */}
                 <View style={styles.levelCardWrapper}>
                     <HomeLevelCard />
                 </View>
 
-                {/* STATISTICS SECTION */}
                 <View style={styles.contentSection}>
                     <AppText size="lg" weight="bold" color={theme.colors.text.primary} style={styles.sectionTitle}>
                         Statistics
                     </AppText>
 
                     <View style={styles.statsGrid}>
-                        <StatCard icon="flame" value={userData.stats.streak} label="Day Streak" iconColor={theme.colors.warning || '#D97706'} />
-                        <StatCard icon="trophy" value={userData.stats.bestStreak} label="Best Streak" iconColor={theme.colors.warningLight || '#F59E0B'} />
-                        <StatCard icon="layers" value={userData.stats.lessons} label="Lessons Done" iconColor={theme.colors.secondary} />
-                        <StatCard icon="bulb" value={userData.stats.words} label="Words Learned" iconColor={theme.colors.warningLight || '#EAB308'} />
+                        <StatCard
+                            icon="flame"
+                            value={userData.stats.streak}
+                            label="Day Streak"
+                            iconColor={theme.colors.warning || '#D97706'}
+                        />
+                        <StatCard
+                            icon="trophy"
+                            value={userData.stats.bestStreak}
+                            label="Best Streak"
+                            iconColor={theme.colors.warningLight || '#F59E0B'}
+                        />
+                        <StatCard
+                            icon="layers"
+                            value={userData.stats.lessons}
+                            label="Lessons Done"
+                            iconColor={theme.colors.secondary}
+                        />
+                        <StatCard
+                            icon="bulb"
+                            value={userData.stats.words}
+                            label="Words Learned"
+                            iconColor={theme.colors.warningLight || '#EAB308'}
+                        />
                     </View>
 
-                    {/* Overall Accuracy */}
                     <View style={styles.infoCard}>
                         <View>
-                            <AppText size="sm" color={theme.colors.text.secondary}>Overall Accuracy</AppText>
+                            <AppText size="sm" color={theme.colors.text.secondary}>
+                                Overall Accuracy
+                            </AppText>
                             <AppText size="md" weight="bold" color={theme.colors.secondary} style={styles.infoValue}>
                                 {userData.stats.accuracy}
                             </AppText>
@@ -206,16 +179,13 @@ const ProfileView = () => {
                         <Ionicons name="disc" size={theme.iconSizes.xxl} color={theme.colors.error} />
                     </View>
 
-                    {/* Member Since */}
                     <View style={styles.infoCard}>
                         <View style={styles.rowCenter}>
-                            <Ionicons
-                                name="calendar-outline"
-                                size={theme.iconSizes.lg}
-                                color={theme.colors.text.secondary}
-                            />
+                            <Ionicons name="calendar-outline" size={theme.iconSizes.lg} color={theme.colors.text.secondary} />
                             <View style={styles.infoTextContainer}>
-                                <AppText size="xs" color={theme.colors.text.secondary}>Member since</AppText>
+                                <AppText size="xs" color={theme.colors.text.secondary}>
+                                    Member since
+                                </AppText>
                                 <AppText size="md" weight="bold" color={theme.colors.text.primary}>
                                     {userData.joinDate}
                                 </AppText>
@@ -223,50 +193,45 @@ const ProfileView = () => {
                         </View>
                     </View>
 
-                    <MenuItem
-                        icon="settings-outline"
-                        label="Settings"
-                        onPress={handleSettingsPress}
-                    />
+                    <MenuItem icon="settings-outline" label="Settings" onPress={goSettings} />
 
-                    {/* Log Out Button - Gọi hàm hiện dialog */}
-                    <TouchableOpacity style={styles.logoutButton} onPress={handleLogOutPress}>
+                    <TouchableOpacity style={styles.logoutButton} onPress={openLogout}>
                         <Ionicons
                             name="log-out-outline"
                             size={theme.iconSizes.lg}
                             color={theme.colors.error}
                             style={styles.logoutIcon}
                         />
-                        <AppText size="md" weight="bold" color={theme.colors.error}>Log Out</AppText>
+                        <AppText size="md" weight="bold" color={theme.colors.error}>
+                            Log Out
+                        </AppText>
                     </TouchableOpacity>
                 </View>
             </ScrollView>
 
-            {/* FAB */}
-            <TouchableOpacity
-                style={styles.fabContainer}
-                activeOpacity={0.8}
-                onPress={handleFeedbackPress}
-            >
+            <TouchableOpacity style={styles.fabContainer} activeOpacity={0.8} onPress={goFeedback}>
                 <LinearGradient
                     colors={[theme.colors.gradientStart, theme.colors.gradientEnd]}
                     style={styles.fabGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                 >
-                    <Ionicons name="chatbubble-ellipses-outline" size={theme.iconSizes.lgx} color={theme.colors.text.white} />
+                    <Ionicons
+                        name="chatbubble-ellipses-outline"
+                        size={theme.iconSizes.lgx}
+                        color={theme.colors.text.white}
+                    />
                 </LinearGradient>
             </TouchableOpacity>
 
-            {/* 4. Dialog Log Out */}
             <AppDialog
                 visible={showLogoutDialog}
                 type="confirm"
                 title="Log Out"
                 message="Are you sure you want to log out?"
-                isDestructive={true}
+                isDestructive
                 confirmText="Log Out"
-                onClose={() => setShowLogoutDialog(false)}
+                onClose={closeLogout}
                 onConfirm={confirmLogOut}
             />
         </View>
@@ -274,39 +239,25 @@ const ProfileView = () => {
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: theme.colors.cardBackground,
-    },
-    loadingContainer: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    scrollContent: {
-        paddingBottom: 100,
-    },
-    userInfoContainer: {
-        alignItems: 'center',
-        paddingBottom: theme.spacing.lg,
-    },
-    userName: {
-        marginTop: theme.spacing.lg,
-    },
-    userEmail: {
-        marginTop: theme.spacing.xs,
-    },
+    container: { flex: 1, backgroundColor: theme.colors.cardBackground },
+    loadingContainer: { justifyContent: 'center', alignItems: 'center' },
+
+    scrollContent: { paddingBottom: 100 },
+
+    userInfoContainer: { alignItems: 'center', paddingBottom: theme.spacing.lg },
+    userName: { marginTop: theme.spacing.lg },
+    userEmail: { marginTop: theme.spacing.xs },
+
     levelCardWrapper: {
         paddingHorizontal: theme.spacing.md,
         marginTop: -30,
         marginBottom: theme.spacing.lg,
         zIndex: 1,
     },
-    contentSection: {
-        padding: theme.spacing.md,
-    },
-    sectionTitle: {
-        marginBottom: theme.spacing.md,
-    },
+
+    contentSection: { padding: theme.spacing.md },
+    sectionTitle: { marginBottom: theme.spacing.md },
+
     statsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -327,12 +278,9 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 2,
     },
-    statIcon: {
-        marginBottom: theme.spacing.sm,
-    },
-    statLabel: {
-        marginTop: theme.spacing.xs,
-    },
+    statIcon: { marginBottom: theme.spacing.sm },
+    statLabel: { marginTop: theme.spacing.xs },
+
     infoCard: {
         backgroundColor: theme.colors.background,
         padding: theme.spacing.md,
@@ -349,16 +297,10 @@ const styles = StyleSheet.create({
         shadowRadius: 2,
         elevation: 1,
     },
-    infoValue: {
-        marginTop: theme.spacing.xs,
-    },
-    infoTextContainer: {
-        marginLeft: theme.spacing.smd,
-    },
-    rowCenter: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
+    infoValue: { marginTop: theme.spacing.xs },
+    infoTextContainer: { marginLeft: theme.spacing.smd },
+    rowCenter: { flexDirection: 'row', alignItems: 'center' },
+
     logoutButton: {
         flexDirection: 'row',
         justifyContent: 'center',
@@ -369,9 +311,8 @@ const styles = StyleSheet.create({
         borderColor: theme.colors.error,
         backgroundColor: '#FEF2F2',
     },
-    logoutIcon: {
-        marginRight: theme.spacing.sm,
-    },
+    logoutIcon: { marginRight: theme.spacing.sm },
+
     fabContainer: {
         position: 'absolute',
         bottom: theme.spacing.lg,

@@ -59,9 +59,9 @@ const MainTabNavigator = () => {
 
             {/* Tab 3: Ranks */}
             <Tabs.Screen
-                name="ranks"
+                name="leaderboard"
                 options={{
-                    title: 'Ranks',
+                    title: 'Leaderboard',
                     tabBarIcon: ({ color, focused }) => (
                         <TabBarIcon name="trophy" color={color} focused={focused} />
                     ),

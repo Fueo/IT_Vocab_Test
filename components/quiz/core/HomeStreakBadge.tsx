@@ -1,28 +1,44 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { AppText } from '../../core'; // Hoặc đường dẫn đúng tới AppText
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+
+import { AppText } from '../../core';
 
 interface HomeStreakBadgeProps {
     streakDays: number;
 }
 
 const HomeStreakBadge: React.FC<HomeStreakBadgeProps> = ({ streakDays }) => {
-    return (
-        <View style={styles.container}>
-            {/* Icon Lửa */}
-            <Ionicons name="flame" size={24} color="#FF9500" style={{ marginRight: 8 }} />
+    const handlePress = () => {
+        router.push('/game/rewards');
+    };
 
-            {/* Số ngày và text */}
-            <View>
-                <AppText size="lg" weight="bold" color="white" style={{ lineHeight: 24 }}>
-                    {streakDays}
-                </AppText>
-                <AppText size="xs" color="rgba(255,255,255,0.8)" style={{ lineHeight: 14 }}>
-                    day streak
-                </AppText>
+    return (
+        <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handlePress}
+        >
+            <View style={styles.container}>
+                {/* Icon Lửa */}
+                <Ionicons
+                    name="flame"
+                    size={24}
+                    color="#FF9500"
+                    style={{ marginRight: 8 }}
+                />
+
+                {/* Số ngày và text */}
+                <View>
+                    <AppText size="lg" weight="bold" color="white" style={{ lineHeight: 24 }}>
+                        {streakDays}
+                    </AppText>
+                    <AppText size="xs" color="rgba(255,255,255,0.8)" style={{ lineHeight: 14 }}>
+                        day streak
+                    </AppText>
+                </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 };
 
