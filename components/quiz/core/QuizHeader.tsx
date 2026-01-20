@@ -8,15 +8,17 @@ interface QuizHeaderProps {
     current: number;
     total: number;
     onClose: () => void;
+    endless?: boolean;
 }
 
 const QuizHeader: React.FC<QuizHeaderProps> = ({
     current,
     total,
     onClose,
+    endless = false,
 }) => {
-    // Tính phần trăm tiến độ
-    const progressPercent = ((current + 1) / total) * 100;
+    const safeTotal = Math.max(1, total || 1);
+    const progressPercent = ((current + 1) / safeTotal) * 100;
 
     return (
         <View style={styles.container}>
@@ -25,15 +27,21 @@ const QuizHeader: React.FC<QuizHeaderProps> = ({
                 <Ionicons name="close" size={24} color={theme.colors.text.secondary} />
             </TouchableOpacity>
 
-            {/* Progress Bar */}
-            <View style={styles.progressContainer}>
-                <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
-            </View>
+            {/* Middle: Progress OR Spacer */}
+            {endless ? (
+                <View style={styles.spacer} />
+            ) : (
+                <View style={styles.progressContainer}>
+                    <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
+                </View>
+            )}
 
-            {/* Counter */}
-            <AppText size="sm" color={theme.colors.text.secondary} weight="bold">
-                {current + 1}/{total}
-            </AppText>
+            {/* Counter (luôn sát phải) */}
+            <View style={styles.counterWrap}>
+                <AppText size="sm" color={theme.colors.text.secondary} weight="bold">
+                    {endless ? `${current + 1}/∞` : `${current + 1}/${safeTotal}`}
+                </AppText>
+            </View>
         </View>
     );
 };
@@ -46,21 +54,33 @@ const styles = StyleSheet.create({
         paddingVertical: theme.spacing.md,
         backgroundColor: theme.colors.background,
     },
-    iconBtn: {
-        padding: 4,
+    iconBtn: { padding: 4 },
+
+    // ✅ spacer để giữ counter luôn dính phải khi endless
+    spacer: {
+        flex: 1,
+        marginHorizontal: theme.spacing.md,
     },
+
     progressContainer: {
         flex: 1,
         height: 10,
-        backgroundColor: '#F3F4F6', // Xám nhạt
+        backgroundColor: '#F3F4F6',
         borderRadius: 5,
         marginHorizontal: theme.spacing.md,
         overflow: 'hidden',
     },
     progressBar: {
         height: '100%',
-        backgroundColor: theme.colors.primary, // Xanh lá
+        backgroundColor: theme.colors.primary,
         borderRadius: 5,
+    },
+
+    // ✅ đảm bảo counter không bị co giãn + nằm sát phải
+    counterWrap: {
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        minWidth: 44, // optional: để khỏi nhảy layout khi 9/10 -> 10/10
     },
 });
 

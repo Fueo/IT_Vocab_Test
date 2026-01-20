@@ -102,18 +102,18 @@ export type StartAttemptRes = {
 
 export type GetQuestionByCursorRes =
   | {
-      attempt: AttemptSummary;
-      cursor: number;
-      canPrev: boolean;
-      canNext: boolean;
-      question: QuestionDto;
-    }
+    attempt: AttemptSummary;
+    cursor: number;
+    canPrev: boolean;
+    canNext: boolean;
+    question: QuestionDto;
+  }
   | {
-      message: string;
-      requireNextBatch?: boolean;
-      cursor?: number;
-      totalQuestions?: number;
-    };
+    message: string;
+    requireNextBatch?: boolean;
+    cursor?: number;
+    totalQuestions?: number;
+  };
 
 // =======================
 // Submit & Next
@@ -239,6 +239,7 @@ export type ReviewItem = {
     questionType: QuestionType;
     wordId: string | null;
     word: ThinWord | null;
+    explanation?: string;
   };
   options: AnswerOptionDto[];
   userAnswer: null | {

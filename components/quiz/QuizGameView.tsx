@@ -2,15 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Animated,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Animated,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import theme from "../../theme";
@@ -54,12 +54,14 @@ function calcFillLenFromAnswerOption(question: QuestionDto | null) {
   const answer = sanitizeFillInput(answerRaw);
 
   // fallback nếu options rỗng
-  const fallback = sanitizeFillInput(question.word?.term || question.word?.word || question.word?.meaning || "");
+  const fallback = sanitizeFillInput(
+    question.word?.term || question.word?.word || (question.word as any)?.meaning || ""
+  );
 
   const len = answer.length || fallback.length || 6;
 
   // tối thiểu 1 ô, nhưng thường bạn muốn ít nhất 4 cho đẹp UI
-  return Math.max(4, len);
+  return Math.max(1, len);
 }
 
 /**
@@ -176,8 +178,10 @@ const QuizGameView = () => {
   const attemptId = asString(params.attemptId) || asString(params.id) || "";
   const initialCursor = Number(asString(params.cursor) || "0");
   const modeParam = (asString(params.mode) as QuizMode | string | undefined) || undefined;
+  const endlessParam = asString(params.endless);
 
   const isLearningMode = modeParam === "LEARN" || modeParam === "learning";
+  const isEndlessMode = endlessParam === "1" || endlessParam === "true" || modeParam === "INFINITE";
 
   // ===== quiz state =====
   const [cursor, setCursor] = useState<number>(Number.isFinite(initialCursor) ? initialCursor : 0);
@@ -248,15 +252,21 @@ const QuizGameView = () => {
 
   const termText = useMemo(() => {
     if (!question) return "";
-    return question.word?.term || question.word?.word || question.word?.meaning || "Question";
+    return "Question"
   }, [question]);
 
   const promptText = useMemo(() => (question ? question.content : ""), [question]);
 
+  // ✅ ưu tiên hint từ backend (question.hint), fallback sang word.example/definition/meaning
   const hintText = useMemo(() => {
-    const ex = question?.word?.example;
-    const def = question?.word?.definition || question?.word?.meaning;
-    return ex || def || "";
+    if (!question) return "";
+
+    const h = String((question as any)?.hint || "").trim();
+    if (h) return h;
+
+    const ex = (question as any)?.word?.example;
+    const def = (question as any)?.word?.definition || (question as any)?.word?.meaning;
+    return String(ex || def || "").trim();
   }, [question]);
 
   // ✅ số ô ____ cho fill blank: dựa vào length của options[0].content
@@ -277,12 +287,15 @@ const QuizGameView = () => {
       setQuestion(ok.question);
       setCursor(ok.cursor ?? c);
 
-      // reset UI
+      // reset answer UI
       setSelectedOptionId(null);
       setFillText("");
       setStatus("playing");
-      setShowHint(false);
       setPendingNext(null);
+
+      // ✅ LEARN: auto show hint nếu có hint
+      const hasHint = !!String((ok.question as any)?.hint || "").trim();
+      setShowHint(false);
     } finally {
       setLoading(false);
     }
@@ -329,7 +342,7 @@ const QuizGameView = () => {
     try {
       const res = await quizApi.submitAndNext(attemptId, {
         cursor,
-        attemptAnswerId: question.attemptAnswer?._id,
+        attemptAnswerId: (question as any).attemptAnswer?._id,
         selectedOptionId: question.questionType === "FILL_BLANK" ? undefined : selectedOptionId || undefined,
         answerText: question.questionType === "FILL_BLANK" ? sanitizeFillInput(fillText) : undefined,
       });
@@ -364,7 +377,7 @@ const QuizGameView = () => {
     setLoading(true);
     try {
       let cm = correctMap;
-      const qid = String(question.questionId);
+      const qid = String((question as any).questionId);
 
       if (!cm.has(qid)) {
         const review = await quizApi.review(attemptId);
@@ -388,7 +401,6 @@ const QuizGameView = () => {
       const info = cm.get(qid);
 
       if (question.questionType === "FILL_BLANK") {
-        // Ưu tiên đúng theo review, fallback theo option[0].content
         const correctTextRaw = (info?.correctAnswers?.[0] || question.options?.[0]?.content || "").toString();
         const correctText = sanitizeFillInput(correctTextRaw);
         if (!correctText) return;
@@ -397,7 +409,7 @@ const QuizGameView = () => {
 
         const res = await quizApi.submitAndNext(attemptId, {
           cursor,
-          attemptAnswerId: question.attemptAnswer?._id,
+          attemptAnswerId: (question as any).attemptAnswer?._id,
           answerText: correctText,
         });
 
@@ -420,7 +432,6 @@ const QuizGameView = () => {
         return;
       }
 
-      // MCQ/TF
       const correctOptId =
         info?.correctOptionId || (question.options?.[0]?._id ? String(question.options[0]._id) : undefined);
 
@@ -430,7 +441,7 @@ const QuizGameView = () => {
 
       const res = await quizApi.submitAndNext(attemptId, {
         cursor,
-        attemptAnswerId: question.attemptAnswer?._id,
+        attemptAnswerId: (question as any).attemptAnswer?._id,
         selectedOptionId: String(correctOptId),
       });
 
@@ -465,8 +476,12 @@ const QuizGameView = () => {
       setSelectedOptionId(null);
       setFillText("");
       setStatus("playing");
-      setShowHint(false);
       setPendingNext(null);
+
+      // ✅ mỗi câu mới: LEARN auto show hint nếu có
+      const hasHint = !!String((pendingNext.question as any)?.hint || "").trim();
+      setShowHint(false);
+
       return;
     }
 
@@ -511,7 +526,7 @@ const QuizGameView = () => {
 
   return (
     <View style={styles.container}>
-      <QuizHeader current={currentIndexForHeader} total={total || 1} onClose={handleRequestExit} />
+      <QuizHeader current={currentIndexForHeader} total={total || 1} endless={isEndlessMode} onClose={handleRequestExit} />
 
       <View style={styles.gameContent}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -520,7 +535,8 @@ const QuizGameView = () => {
               LEARN THIS WORD
             </AppText>
 
-            {isLearningMode && (
+            {/* ✅ LEARN: chỉ hiện nút Hint nếu có hint */}
+            {isLearningMode && !!hintText && (
               <TouchableOpacity onPress={() => setShowHint(!showHint)} style={styles.hintToggle} activeOpacity={0.6}>
                 <Ionicons name={showHint ? "eye-off-outline" : "bulb-outline"} size={18} color={theme.colors.secondary} />
                 <AppText size="sm" weight="bold" color={theme.colors.secondary} style={styles.hintText}>
@@ -625,7 +641,8 @@ const QuizGameView = () => {
                   loading ||
                   (question.questionType === "FILL_BLANK"
                     ? !sanitizeFillInput(fillText).trim()
-                    : (question.questionType === "MULTIPLE_CHOICE" || question.questionType === "TRUE_FALSE") && !selectedOptionId)
+                    : (question.questionType === "MULTIPLE_CHOICE" || question.questionType === "TRUE_FALSE") &&
+                    !selectedOptionId)
                 }
                 style={isLearningMode ? styles.halfButton : styles.fullButton}
                 isLoading={loading}
@@ -633,7 +650,12 @@ const QuizGameView = () => {
             </View>
           </View>
         ) : (
-          <FeedbackBottom isCorrect={lastIsCorrect} explanation={lastExplanation} onContinue={handleContinue} isLastQuestion={isLastQuestion} />
+          <FeedbackBottom
+            isCorrect={lastIsCorrect}
+            explanation={lastExplanation}
+            onContinue={handleContinue}
+            isLastQuestion={isLastQuestion}
+          />
         )}
       </View>
 
@@ -716,7 +738,7 @@ const styles = StyleSheet.create({
   // ===== FillBlankCellsInput styles =====
   cellContainer: {
     flexDirection: "row",
-    flexWrap: "wrap", // ✅ dài quá tự xuống dòng
+    flexWrap: "wrap",
     justifyContent: "center",
     width: "100%",
     paddingHorizontal: 10,

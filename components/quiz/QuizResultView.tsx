@@ -26,15 +26,18 @@ type DialogState = {
 const QuizResultView = () => {
   const params = useLocalSearchParams();
 
-  // ✅ nhận attemptId để finish
-  const attemptId = asString(params.attemptId || params.id);
+  // ✅ nhận attemptId để finish + review
+  const attemptId = asString((params as any).attemptId || (params as any).id);
 
-  // Nhận kết quả từ params
-  const correctCount = Number(asString(params.correct)) || 0;
-  const totalCountRaw = Number(asString(params.total)) || 0;
-  const totalCount = totalCountRaw > 0 ? totalCountRaw : 5;
+  // ✅ course title (optional)
+  const courseTitle = asString((params as any).courseTitle) || "Course";
 
-  const courseTitle = asString(params.courseTitle) || "Course";
+  // ✅ hiển thị UI ngay cả khi chưa finish xong: dùng params làm fallback
+  const [correctCount, setCorrectCount] = useState<number>(Number(asString((params as any).correct)) || 0);
+  const [totalCount, setTotalCount] = useState<number>(() => {
+    const t = Number(asString((params as any).total)) || 0;
+    return t > 0 ? t : 5;
+  });
 
   // ===== finish state =====
   const calledRef = useRef(false);
@@ -59,7 +62,10 @@ const QuizResultView = () => {
     const run = async () => {
       setFinishing(true);
       try {
-        await quizApi.finish(attemptId);
+        // ✅ lấy số liệu thật từ BE để Result + Review khớp nhau
+        const res = await quizApi.finish(attemptId);
+        setCorrectCount(res.correctAnswers ?? 0);
+        setTotalCount(res.totalQuestions ?? 1);
       } catch (e: any) {
         const msg = e?.response?.data?.message || e?.message || "Không thể finish quiz.";
         openDialog({
@@ -94,33 +100,16 @@ const QuizResultView = () => {
     <>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} bounces={false}>
         {/* 1. Header Section */}
-        <ResultHeader
-          score={correctCount}
-          total={totalCount}
-          title={title}
-          subtitle={subtitle}
-          iconSource={null}
-        />
+        <ResultHeader score={correctCount} total={totalCount} title={title} subtitle={subtitle} iconSource={null} />
 
         {/* ✅ Finish status (nhẹ nhàng, không phá UI) */}
         {attemptId ? (
-          <View style={styles.finishRow}>
-            {finishing ? (
-              <>
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-              </>
-            ) : null}
-          </View>
+          <View style={styles.finishRow}>{finishing ? <ActivityIndicator size="small" color={theme.colors.primary} /> : null}</View>
         ) : null}
 
         {/* 2. Stats Grid */}
         <View style={styles.statsContainer}>
-          <StatCard
-            label="Accuracy"
-            value={`${accuracy}%`}
-            icon="radio-button-on"
-            iconColor={theme.colors.secondary}
-          />
+          <StatCard label="Accuracy" value={`${accuracy}%`} icon="radio-button-on" iconColor={theme.colors.secondary} />
           <StatCard
             label="Correct"
             value={`${correctCount}/${totalCount}`}
@@ -146,23 +135,17 @@ const QuizResultView = () => {
               router.push({
                 pathname: "/game/review" as any,
                 params: {
-                  attemptId, // ✅ pass attemptId để review biết attempt nào
+                  attemptId,
                   courseTitle,
                 },
               })
             }
             icon="eye-outline"
             style={styles.reviewBtn}
-            disabled={!attemptId}
+            disabled={!attemptId || finishing}
           />
 
-          <AppButton
-            title="Try Again"
-            variant="primary"
-            onPress={() => router.back()}
-            icon="refresh"
-            style={styles.actionMargin}
-          />
+          <AppButton title="Try Again" variant="primary" onPress={() => router.back()} icon="refresh" style={styles.actionMargin} />
 
           <AppButton
             title="Back to Home"
