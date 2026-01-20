@@ -1,8 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 import theme from "../../theme";
 import { AppDialog, AppText, HomeHeader, MenuItem } from "../core";
@@ -11,30 +18,17 @@ import HomeLevelCard from "../quiz/core/HomeLevelCard";
 import RankBadge from "./core/RankBadge";
 import UserAvatar from "./core/UserAvatar";
 
-// ✅ import auth + stores
+// auth + stores
 import { authApi } from "../../api/auth";
 import { guestStore } from "../../storage/guest";
 import { tokenStore } from "../../storage/token";
 
-interface UserData {
-  name: string;
-  email: string;
-  rank: string;
-  equippedFrame: string;
-  avatarUrl: string;
-  stats: {
-    streak: string;
-    bestStreak: string;
-    lessons: string;
-    words: string;
-    accuracy: string;
-  };
-  joinDate: string;
-}
+import { fetchProfile } from "../../store/profileActions";
+import { useProfileStore } from "../../store/useProfileStore";
 
 interface StatCardProps {
   icon: keyof typeof Ionicons.glyphMap;
-  value: string;
+  value: string | number;
   label: string;
   iconColor: string;
 }
@@ -43,7 +37,7 @@ const StatCard: React.FC<StatCardProps> = ({ icon, value, label, iconColor }) =>
   <View style={styles.statCard}>
     <Ionicons name={icon} size={theme.iconSizes.lgx} color={iconColor} style={styles.statIcon} />
     <AppText size="lg" weight="bold" color={theme.colors.text.primary}>
-      {value}
+      {String(value)}
     </AppText>
     <AppText size="xs" color={theme.colors.text.secondary} style={styles.statLabel}>
       {label}
@@ -51,26 +45,21 @@ const StatCard: React.FC<StatCardProps> = ({ icon, value, label, iconColor }) =>
   </View>
 );
 
-const MOCK_USER: UserData = {
-  name: "Guest User",
-  email: "guest@itvocabmaster.com",
-  rank: "gold",
-  equippedFrame: "frame2",
-  avatarUrl: "https://cdn-icons-png.freepik.com/512/6858/6858504.png",
-  stats: {
-    streak: "7",
-    bestStreak: "15",
-    lessons: "8",
-    words: "124",
-    accuracy: "85%",
-  },
-  joinDate: "December 2025",
-};
+function formatMemberSince(input?: string | null) {
+  if (!input) return "-";
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return "-";
+
+  // hiển thị kiểu: Jan 2026
+  return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+}
 
 const ProfileView = () => {
-  const [userData, setUserData] = useState<UserData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const profile = useProfileStore((s) => s.profile);
+  const profileLoading = useProfileStore((s) => s.isLoading);
+  const profileError = useProfileStore((s) => s.error);
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -79,31 +68,45 @@ const ProfileView = () => {
 
   const openLogout = () => setShowLogoutDialog(true);
   const closeLogout = () => {
-    if (isLoggingOut) return; // đang logout thì khóa đóng
+    if (isLoggingOut) return;
     setShowLogoutDialog(false);
   };
 
-  // ✅ LOGOUT THẬT: gọi API nếu user login, còn guest thì chỉ clear guest key
+  // fetch lần đầu nếu chưa có profile
+  useEffect(() => {
+    if (!profile && !profileLoading) {
+      fetchProfile().catch(() => {});
+    }
+  }, [profile, profileLoading]);
+
+  // pull-to-refresh
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchProfile({ silent: true });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // logout
   const confirmLogOut = async () => {
     if (isLoggingOut) return;
 
     setIsLoggingOut(true);
     try {
-      const accessToken = await tokenStore.getAccessToken();
+      const accessToken = await tokenStore.getAccessToken(); // ✅ theo tokenStore dạng get()/clear()
       const guestKey = await guestStore.get();
 
-      // 1) Nếu đang login thật -> gọi API logout
       if (accessToken) {
-        await authApi.logout(); // hàm này sẽ gọi /auth/logout + clear token local
+        await authApi.logout();
       } else {
-        // 2) Nếu là guest -> clear guest key thôi
         if (guestKey) await guestStore.clear();
       }
 
       setShowLogoutDialog(false);
       router.replace("/auth/login");
     } catch (e) {
-      // nếu server lỗi vẫn nên clear local để logout được
       await tokenStore.clearTokens();
       await guestStore.clear();
 
@@ -114,25 +117,8 @@ const ProfileView = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        setIsLoading(true);
-
-        // TODO: sau này bạn thay bằng API profile thực
-        await new Promise((r) => setTimeout(r, 500));
-        setUserData(MOCK_USER);
-      } catch (e) {
-        console.error("Failed to fetch user data", e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, []);
-
-  if (isLoading || !userData) {
+  // loading state
+  if (profileLoading && !profile) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -140,9 +126,58 @@ const ProfileView = () => {
     );
   }
 
+  // no profile state
+  if (!profile) {
+    return (
+      <View style={styles.container}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { flexGrow: 1, justifyContent: "center", alignItems: "center" },
+          ]}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
+        >
+          <AppText size="md" color={theme.colors.text.secondary}>
+            {profileError ? `Không tải được profile: ${profileError}` : "Chưa có dữ liệu profile."}
+          </AppText>
+          <AppText size="sm" color={theme.colors.text.secondary} style={{ marginTop: 8 }}>
+            Kéo xuống để thử lại.
+          </AppText>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // map profile => UI
+  const userName = profile.name?.trim() || "User";
+  const avatarUrl = profile.avatarURL || undefined;
+
+  const streak = profile.currentStreak ?? 0;
+  const bestStreak = profile.longestStreak ?? 0;
+
+  const lessons = profile.stats?.lessonsDone ?? 0;
+  const words = profile.stats?.wordsLearned ?? 0;
+  const accuracy = useMemo(() => {
+    const v = profile.stats?.accuracy;
+    return typeof v === "number" ? `${v}%` : "-";
+  }, [profile.stats?.accuracy]);
+
+  const joinDate = useMemo(() => formatMemberSince(profile.memberSince ?? null), [profile.memberSince]);
+
+  // map rankLevel => badge (tuỳ design)
+  const rankLevel = profile.currentRank?.rankLevel ?? 1;
+  const rankKey = rankLevel >= 10 ? "gold" : rankLevel >= 5 ? "silver" : "bronze";
+
+  // TODO: map skin/frame nếu bạn muốn dùng activeSkin
+  const frameId = "frame2" as any;
+
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
+      >
         <HomeHeader
           title="Profile"
           rightIcon="settings-outline"
@@ -150,27 +185,27 @@ const ProfileView = () => {
           showRightIconBackground={false}
           bottomContent={
             <View style={styles.userInfoContainer}>
-              <UserAvatar
-                initials={userData.name.charAt(0)}
-                size={120}
-                imageUrl={userData.avatarUrl}
-                frameId={userData.equippedFrame as any}
-              >
-                <RankBadge rank={userData.rank as any} />
+              <UserAvatar initials={userName.charAt(0)} size={120} imageUrl={avatarUrl} frameId={frameId}>
+                <RankBadge rank={rankKey as any} />
               </UserAvatar>
 
               <AppText size="title" weight="bold" color={theme.colors.text.white} style={styles.userName}>
-                {userData.name}
+                {userName}
               </AppText>
+
               <AppText size="sm" color="rgba(255,255,255,0.8)" style={styles.userEmail}>
-                {userData.email}
+                {profile.phone ? `Phone: ${profile.phone}` : " "}
               </AppText>
             </View>
           }
         />
 
         <View style={styles.levelCardWrapper}>
-          <HomeLevelCard />
+          <HomeLevelCard
+            currentXP={profile.currentXP ?? 0}
+            currentRank={profile.currentRank ?? null}
+            nextRank={profile.nextRank ?? null}
+          />
         </View>
 
         <View style={styles.contentSection}>
@@ -179,10 +214,10 @@ const ProfileView = () => {
           </AppText>
 
           <View style={styles.statsGrid}>
-            <StatCard icon="flame" value={userData.stats.streak} label="Day Streak" iconColor={theme.colors.warning || "#D97706"} />
-            <StatCard icon="trophy" value={userData.stats.bestStreak} label="Best Streak" iconColor={theme.colors.warningLight || "#F59E0B"} />
-            <StatCard icon="layers" value={userData.stats.lessons} label="Lessons Done" iconColor={theme.colors.secondary} />
-            <StatCard icon="bulb" value={userData.stats.words} label="Words Learned" iconColor={theme.colors.warningLight || "#EAB308"} />
+            <StatCard icon="flame" value={streak} label="Day Streak" iconColor={theme.colors.warning || "#D97706"} />
+            <StatCard icon="trophy" value={bestStreak} label="Best Streak" iconColor={theme.colors.warningLight || "#F59E0B"} />
+            <StatCard icon="layers" value={lessons} label="Lessons Done" iconColor={theme.colors.secondary} />
+            <StatCard icon="bulb" value={words} label="Words Learned" iconColor={theme.colors.warningLight || "#EAB308"} />
           </View>
 
           <View style={styles.infoCard}>
@@ -191,7 +226,7 @@ const ProfileView = () => {
                 Overall Accuracy
               </AppText>
               <AppText size="md" weight="bold" color={theme.colors.secondary} style={styles.infoValue}>
-                {userData.stats.accuracy}
+                {accuracy}
               </AppText>
             </View>
             <Ionicons name="disc" size={theme.iconSizes.xxl} color={theme.colors.error} />
@@ -205,7 +240,7 @@ const ProfileView = () => {
                   Member since
                 </AppText>
                 <AppText size="md" weight="bold" color={theme.colors.text.primary}>
-                  {userData.joinDate}
+                  {joinDate}
                 </AppText>
               </View>
             </View>

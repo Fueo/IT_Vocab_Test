@@ -19,7 +19,9 @@ import HomeStreakBadge from "./core/HomeStreakBadge";
 import QuizCard from "./core/QuizCard";
 import QuizTabs, { QuizTabKey } from "./core/QuizTabs";
 
+import { useProfileStore } from "@/store/useProfileStore";
 import { quizApi, TopicQuizItem } from "../../api/quiz";
+import { fetchProfile } from "../../store/profileActions";
 import PaginationControl from "../core/PaginationControl";
 
 const { width } = Dimensions.get("window");
@@ -97,8 +99,12 @@ const QuizView = () => {
   // ===== refresh =====
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const userName = "Liêu Thiên Hạo";
-  const streakDays = 7;
+const profile = useProfileStore((s) => s.profile);
+const isLoadingProfile = useProfileStore((s) => s.isLoading);
+const profileError = useProfileStore((s) => s.error);
+
+const userName = profile?.name?.trim() || "Guest";
+const streakDays = profile?.currentStreak ?? 0;
 
   const fetchTopicPage = async (page: number, opts?: { refreshing?: boolean }) => {
     const refreshing = !!opts?.refreshing;
@@ -129,15 +135,17 @@ const QuizView = () => {
     }
   }, [selectedTab]);
 
-  const onRefresh = async () => {
-    setIsRefreshing(true);
-    if (selectedTab === "TOPIC") {
-      await fetchTopicPage(1, { refreshing: true });
-      setTopicPage(1);
-    } else {
-      setTimeout(() => setIsRefreshing(false), 500);
-    }
-  };
+const onRefresh = async () => {
+  setIsRefreshing(true);
+  try {
+    await Promise.all([
+      fetchProfile({ silent: true }), // refresh profile
+      fetchTopicPage(1, { refreshing: true }), // refresh quiz list
+    ]);
+  } finally {
+    setIsRefreshing(false);
+  }
+};
 
   const listData = useMemo(() => {
     if (selectedTab === "TOPIC") return topicItems;
@@ -191,7 +199,11 @@ const QuizView = () => {
               title={`Hi, ${userName}!`}
               subtitle="Keep up the great work!"
               rightComponent={<HomeStreakBadge streakDays={streakDays} />}
-              bottomContent={<HomeLevelCard />}
+              bottomContent={<HomeLevelCard
+  currentXP={profile?.currentXP ?? 0}
+  currentRank={profile?.currentRank ?? null}
+  nextRank={profile?.nextRank ?? null}
+/>}
               height={240}
               containerStyle={styles.headerContainer}
             />

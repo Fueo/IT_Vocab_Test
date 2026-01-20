@@ -1,6 +1,11 @@
-import React from 'react';
-import MainTabNavigator from '../../components/navigation/MainTabNavigator'; // Sửa đường dẫn import cho đúng
+import React, { useEffect } from "react";
+import MainTabNavigator from "../../components/navigation/MainTabNavigator";
+import { fetchProfile } from "../../store/profileActions";
 
 export default function TabLayout() {
-    return <MainTabNavigator />;
+  useEffect(() => {
+    fetchProfile(); // ✅ gọi 1 lần khi vào tabs
+  }, []);
+
+  return <MainTabNavigator />;
 }

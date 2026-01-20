@@ -1,8 +1,8 @@
-// api/quiz.ts
+// src/api/quiz.ts
 import { api } from "./client";
 
 // =======================
-// Types (match BE response)
+// Shared Types
 // =======================
 
 export type QuizMode = "TOPIC" | "RANDOM" | "INFINITE" | "LEARN";
@@ -59,6 +59,21 @@ export type QuestionDto = {
 };
 
 // =======================
+// Rank types (copy from profile types to avoid circular import)
+// =======================
+
+export type RankInfo = {
+  rankId: string;
+  rankLevel: number;
+  rankName: string;
+  neededEXP: number;
+};
+
+export type NextRankInfo = RankInfo & {
+  remainingEXP: number;
+};
+
+// =======================
 // Quizzes list (topics paginated)
 // =======================
 
@@ -102,18 +117,18 @@ export type StartAttemptRes = {
 
 export type GetQuestionByCursorRes =
   | {
-    attempt: AttemptSummary;
-    cursor: number;
-    canPrev: boolean;
-    canNext: boolean;
-    question: QuestionDto;
-  }
+      attempt: AttemptSummary;
+      cursor: number;
+      canPrev: boolean;
+      canNext: boolean;
+      question: QuestionDto;
+    }
   | {
-    message: string;
-    requireNextBatch?: boolean;
-    cursor?: number;
-    totalQuestions?: number;
-  };
+      message: string;
+      requireNextBatch?: boolean;
+      cursor?: number;
+      totalQuestions?: number;
+    };
 
 // =======================
 // Submit & Next
@@ -183,15 +198,31 @@ export type UpdateAnswerRes = {
 };
 
 // =======================
-// Finish
+// Finish (UPDATED to match new BE response)
 // =======================
 
 export type FinishAttemptRes = {
-  attemptId: string;
-  totalQuestions: number;
-  correctAnswers: number;
-  earnedXP: number;
-  status: AttemptStatus;
+  message: string;
+  attempt: {
+    attemptId: string;
+    totalQuestions: number;
+    correctAnswers: number;
+    earnedXP: number;
+    status: AttemptStatus;
+    finishedAt?: string | null;
+    mode?: QuizMode;
+  };
+  user: null | {
+    userId: string;
+    currentXP: number;
+    currentStreak: number;
+    longestStreak: number;
+    lastStudyDate: string | null;
+  };
+  rank: null | {
+    currentRank: RankInfo | null;
+    nextRank: NextRankInfo | null;
+  };
 };
 
 // =======================
@@ -240,6 +271,7 @@ export type ReviewItem = {
     wordId: string | null;
     word: ThinWord | null;
     explanation?: string;
+    example?: string;
   };
   options: AnswerOptionDto[];
   userAnswer: null | {
@@ -266,7 +298,7 @@ export type AbandonRes = {
 };
 
 // =======================
-// API (✅ paths fixed per BE router, all start with /quiz)
+// API
 // =======================
 
 export const quizApi = {
@@ -282,16 +314,12 @@ export const quizApi = {
 
   // GET /quiz/attempts/:attemptId/questions/:cursor
   getQuestionByCursor(attemptId: string, cursor: number) {
-    return api
-      .get<GetQuestionByCursorRes>(`/quiz/attempts/${attemptId}/questions/${cursor}`)
-      .then((r) => r.data);
+    return api.get<GetQuestionByCursorRes>(`/quiz/attempts/${attemptId}/questions/${cursor}`).then((r) => r.data);
   },
 
   // POST /quiz/attempts/:attemptId/submit
   submitAndNext(attemptId: string, body: SubmitAndNextBody) {
-    return api
-      .post<SubmitAndNextRes>(`/quiz/attempts/${attemptId}/submit`, body)
-      .then((r) => r.data);
+    return api.post<SubmitAndNextRes>(`/quiz/attempts/${attemptId}/submit`, body).then((r) => r.data);
   },
 
   // GET /quiz/attempts/:attemptId?page=&pageSize=
@@ -306,12 +334,10 @@ export const quizApi = {
 
   // PUT /quiz/attempt-answers/:attemptAnswerId
   updateAnswer(attemptAnswerId: string, body: UpdateAnswerBody) {
-    return api
-      .put<UpdateAnswerRes>(`/quiz/attempt-answers/${attemptAnswerId}`, body)
-      .then((r) => r.data);
+    return api.put<UpdateAnswerRes>(`/quiz/attempt-answers/${attemptAnswerId}`, body).then((r) => r.data);
   },
 
-  // POST /quiz/attempts/:attemptId/finish
+  // POST /quiz/attempts/:attemptId/finish  ✅ UPDATED TYPE
   finish(attemptId: string) {
     return api.post<FinishAttemptRes>(`/quiz/attempts/${attemptId}/finish`).then((r) => r.data);
   },
