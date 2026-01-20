@@ -24,6 +24,9 @@ export type LogoutRes = { message: string };
 export type GoogleBody = { idToken: string };
 export type FacebookBody = { accessToken: string };
 
+export type ChangePasswordBody = { oldPassword: string; newPassword: string };
+export type ChangePasswordRes = { message: string }
+
 // ====== API ======
 export const authApi = {
   // POST /auth/register
@@ -51,6 +54,11 @@ export const authApi = {
   // POST /auth/new-password
   newPassword(body: NewPasswordBody) {
     return api.post<NewPasswordRes>("/auth/new-password", body).then((r) => r.data);
+  },
+
+    // PUT /auth/change-password
+  changePassword(body: ChangePasswordBody) {
+    return api.put<ChangePasswordRes>("/auth/change-password", body).then((r) => r.data);
   },
 
   // POST /auth/refresh (thường không cần gọi tay vì client.ts auto rồi)

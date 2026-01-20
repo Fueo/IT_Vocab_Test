@@ -1,14 +1,14 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    StyleSheet,
-    TextInput,
-    View,
+  Animated,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View,
 } from "react-native";
 
 import theme from "../../theme";
@@ -17,7 +17,7 @@ import AppHeader from "../core/AppDetailHeader";
 import AppDialog from "../core/AppDialog";
 import AppText from "../core/AppText";
 
-import { authApi } from "../../api/auth";
+import { authApi, Purpose } from "../../api/auth"; // ✅ Import type Purpose
 
 type DialogType = "success" | "error" | "warning" | "info" | "confirm";
 type DialogState = {
@@ -32,11 +32,16 @@ type DialogState = {
 const VerifyCodeView = () => {
   const params = useLocalSearchParams();
   const email = String(params.email || "");
+  // ✅ 1. Lấy purpose từ params (mặc định là signup nếu thiếu)
+  const purpose = (params.purpose as Purpose) || "signup"; 
 
   const [code, setCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [timer, setTimer] = useState(30);
+  
+  // ✅ State lưu resetToken tạm thời khi verify thành công (cho luồng forgot password)
+  const [resetToken, setResetToken] = useState<string | null>(null);
 
   const inputRef = useRef<TextInput>(null);
   const CODE_LENGTH = 6;
@@ -71,22 +76,31 @@ const VerifyCodeView = () => {
 
   const handleVerify = async () => {
     if (!email) {
-      openDialog({ type: "error", title: "Missing Email", message: "Please go back and register again.", closeText: "OK", onCloseGoBack: true });
+      openDialog({ type: "error", title: "Missing Email", message: "Please go back and try again.", closeText: "OK", onCloseGoBack: true });
       return;
     }
     if (code.length !== CODE_LENGTH) return;
 
     setIsVerifying(true);
     try {
-      await authApi.verifyCode({ email, purpose: "signup", code });
+      // ✅ 2. Gọi API với dynamic purpose
+      const res = await authApi.verifyCode({ email, purpose, code });
+
+      // Nếu là reset password, backend sẽ trả về resetToken
+      if (purpose === "reset_password" && res.resetToken) {
+        setResetToken(res.resetToken);
+      }
 
       openDialog({
         type: "success",
         title: "Verified!",
-        message: "Your email has been verified. You can log in now.",
-        closeText: "Go to Login",
+        message: purpose === "signup" 
+            ? "Your email has been verified. You can log in now."
+            : "Code verified. You can now set a new password.",
+        closeText: "Continue",
         onCloseGoBack: false,
       });
+
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.message || "OTP not correct.";
       openDialog({
@@ -108,7 +122,8 @@ const VerifyCodeView = () => {
 
     setIsResending(true);
     try {
-      await authApi.sendCode({ email, purpose: "signup" });
+      // ✅ 3. Resend cũng dùng dynamic purpose
+      await authApi.sendCode({ email, purpose });
       setTimer(30);
 
       openDialog({
@@ -132,6 +147,7 @@ const VerifyCodeView = () => {
     }
   };
 
+  // ... (renderCells giữ nguyên)
   const renderCells = () => {
     const cells = [];
     for (let i = 0; i < CODE_LENGTH; i++) {
@@ -163,6 +179,7 @@ const VerifyCodeView = () => {
               Enter Verification Code
             </AppText>
             <AppText size="md" color={theme.colors.text.secondary} centered>
+              {/* Có thể chỉnh text tùy purpose nếu muốn */}
               We have sent a code to{" "}
               <AppText weight="bold" color={theme.colors.text.primary}>
                 {email || "your email"}
@@ -236,12 +253,29 @@ const VerifyCodeView = () => {
           closeDialog();
 
           if (shouldGoBack) {
-            router.replace("/auth/register" as any);
+            router.back();
             return;
           }
 
+          // ✅ 4. Điều hướng dựa trên Purpose
           if (isSuccess) {
-            router.replace("/auth/login" as any);
+            if (purpose === "signup") {
+              // Case 1: Đăng ký thành công -> Về Login
+              router.replace("/auth/login" as any);
+            } else if (purpose === "reset_password") {
+              // Case 2: Reset mật khẩu -> Sang màn nhập mật khẩu mới
+              // Phải truyền kèm resetToken lấy được ở bước verify
+              if (resetToken) {
+                router.replace({
+                  pathname: "/auth/new-password",
+                  params: { resetToken: resetToken }
+                } as any);
+              } else {
+                 // Fallback an toàn nếu ko có token (hiếm gặp)
+                 console.error("Missing resetToken");
+                 router.replace("/auth/login" as any);
+              }
+            }
           }
         }}
       />

@@ -10,10 +10,13 @@ import {
 } from 'react-native';
 
 import theme from '../../theme';
-import AppButton from '../core/AppButton'; // Import AppButton
+import AppButton from '../core/AppButton';
 import AppHeader from '../core/AppDetailHeader';
 import AppInput from '../core/AppInput';
 import AppText from '../core/AppText';
+
+// ✅ Import API
+import { authApi } from '../../api/auth'; // Hãy sửa đường dẫn nếu file api của bạn nằm chỗ khác
 
 const ForgetPasswordView = () => {
     const [email, setEmail] = useState('');
@@ -22,12 +25,15 @@ const ForgetPasswordView = () => {
 
     const handleSendCode = async () => {
         // 1. Validate
-        if (!email.trim()) {
+        const mailToUse = email.trim();
+        
+        if (!mailToUse) {
             setError("Please enter your email address.");
             return;
         }
+        
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
+        if (!emailRegex.test(mailToUse)) {
             setError("Invalid email format.");
             return;
         }
@@ -36,19 +42,27 @@ const ForgetPasswordView = () => {
         setIsSending(true);
 
         try {
-            // 2. Fake API Call
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            // 2. ✅ REAL API CALL
+            // Gọi API gửi mã với purpose là reset_password
+            await authApi.sendCode({
+                email: mailToUse,
+                purpose: "reset_password"
+            });
 
             // 3. Navigate to Verify Code
+            // Truyền email và purpose qua màn hình tiếp theo để verify
             router.replace({
                 pathname: "/auth/verify-code",
-                params: { email: email }
+                params: { 
+                    email: mailToUse,
+                    purpose: "reset_password" // Có thể truyền thêm để màn hình sau biết context
+                }
             } as any);
 
-        } catch (err) {
-            // Nếu dùng AppButton thì không cần Alert ở đây cũng được, 
-            // hoặc giữ Alert nếu muốn thông báo global
-            console.error(err);
+        } catch (err: any) {
+            // ✅ Xử lý lỗi từ Backend hiển thị lên UI
+            const msg = err?.response?.data?.message || err.message || "Failed to send code. Please try again.";
+            setError(msg);
         } finally {
             setIsSending(false);
         }
@@ -94,10 +108,11 @@ const ForgetPasswordView = () => {
                             icon="mail-outline"
                             keyboardType="email-address"
                             error={error}
+                            autoCapitalize="none" // Nên thêm để tránh viết hoa chữ cái đầu của email
                         />
                     </View>
 
-                    {/* Submit Button (Thay thế TouchableOpacity bằng AppButton) */}
+                    {/* Submit Button */}
                     <AppButton
                         title="Send Code"
                         onPress={handleSendCode}
@@ -139,7 +154,6 @@ const styles = StyleSheet.create({
     formContainer: {
         marginBottom: theme.spacing.lg,
     },
-    // Đã xóa styles.sendButton và styles.buttonDisabled vì AppButton tự xử lý
 });
 
 export default ForgetPasswordView;

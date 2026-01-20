@@ -23,7 +23,7 @@
     "expo-dev-client": "~6.0.20",
     "expo-facebook": "^12.2.0",
     "expo-font": "~14.0.10",
-    "expo-image-picker": "~17.0.10",
+    "expo-image-picker": "^17.0.10",
     "expo-linear-gradient": "~15.0.8",
     "expo-media-library": "~18.2.1",
     "expo-router": "~6.0.21",

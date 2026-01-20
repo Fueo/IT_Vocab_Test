@@ -1,6 +1,11 @@
 import { emitAuthExpired } from "@/lib/authEvents";
 import { guestStore } from "@/storage/guest";
-import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from "axios";
+import axios, {
+  AxiosError,
+  AxiosInstance,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from "axios";
 import { Tokens, tokenStore } from "../storage/token";
 
 const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -8,15 +13,36 @@ const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL;
 export const api: AxiosInstance = axios.create({
   baseURL,
   timeout: 15000,
-  headers: { "Content-Type": "application/json" },
+  // ✅ KHÔNG set Content-Type global (để tự động theo từng request)
 });
 
-api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-  const token = await tokenStore.getAccessToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+// helper: detect FormData (RN/Expo ok)
+function isFormData(data: any) {
+  return (data && typeof data === 'object' && data.constructor && data.constructor.name === 'FormData');
+}
 
+api.interceptors.request.use(async (config) => {
+  const token = await tokenStore.getAccessToken();
   const guestKey = await guestStore.get();
+
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   if (guestKey) config.headers["x-guest-key"] = guestKey;
+
+  const isFD =
+    config.data &&
+    typeof config.data === "object" &&
+    config.data.constructor?.name === "FormData";
+
+  if (isFD) {
+    // quan trọng: xóa hết content-type để axios/native tự set boundary
+    delete (config.headers as any)["Content-Type"];
+    delete (config.headers as any)["content-type"];
+  } else {
+    // chỉ set JSON nếu chưa có
+    if (!(config.headers as any)["Content-Type"] && !(config.headers as any)["content-type"]) {
+      (config.headers as any)["Content-Type"] = "application/json";
+    }
+  }
 
   return config;
 });
@@ -44,7 +70,7 @@ function notifyLoginAgain(msg?: string) {
 api.interceptors.response.use(
   (res: AxiosResponse) => res,
   async (error: AxiosError<any>) => {
-    const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean });
+    const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     if (!error.response || error.response.status !== 401) {
       return Promise.reject(error);
@@ -98,12 +124,18 @@ api.interceptors.response.use(
       resolveQueue(tokens.accessToken);
 
       original.headers.Authorization = `Bearer ${tokens.accessToken}`;
+
+      // ✅ QUAN TRỌNG: nếu original là FormData thì cũng xóa Content-Type trước khi retry
+      if (isFormData(original.data)) {
+        delete (original.headers as any)["Content-Type"];
+        delete (original.headers as any)["content-type"];
+      }
+
       return api(original);
     } catch (e) {
       resolveQueue(null);
       await tokenStore.clearTokens();
 
-      // ✅ fail vài lần thì mới bật dialog (hoặc bạn set =1 là hợp lý nhất)
       refreshFailCount += 1;
       if (refreshFailCount >= 2) {
         notifyLoginAgain("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");

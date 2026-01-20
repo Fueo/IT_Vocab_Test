@@ -194,7 +194,6 @@ const ProfileView = () => {
               </AppText>
 
               <AppText size="sm" color="rgba(255,255,255,0.8)" style={styles.userEmail}>
-                {profile.phone ? `Phone: ${profile.phone}` : " "}
               </AppText>
             </View>
           }
