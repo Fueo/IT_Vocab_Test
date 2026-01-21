@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Modal, StyleSheet, TouchableWithoutFeedback, View } from 'react-native';
-import theme from '../../theme'; // Import theme của bạn
+import theme from '../../theme';
 import AppButton from './AppButton';
 import AppText from './AppText';
 
@@ -9,20 +9,20 @@ export type DialogType = 'success' | 'error' | 'warning' | 'info' | 'confirm';
 
 interface AppDialogProps {
     visible: boolean;
-    type?: DialogType; // Mặc định là 'info'
+    type?: DialogType;
     title: string;
     message?: string;
 
     // --- Actions ---
-    onClose: () => void;      // Hành động đóng (hoặc nút Cancel)
-    onConfirm?: () => void;   // Hành động xác nhận (chỉ dùng cho type='confirm')
+    onClose: () => void;
+    onConfirm?: () => void;
 
     // --- Custom Labels ---
-    closeText?: string;       // Text cho nút đóng (mặc định "Close" hoặc "Cancel")
-    confirmText?: string;     // Text cho nút xác nhận (mặc định "Confirm")
+    closeText?: string;
+    confirmText?: string; // Text nút chính (OK, Confirm, Yes...)
 
     // --- Tùy chỉnh nâng cao ---
-    isDestructive?: boolean;  // Nếu true, nút Confirm sẽ màu đỏ (dùng cho Xóa/Logout)
+    isDestructive?: boolean;
 }
 
 const AppDialog: React.FC<AppDialogProps> = ({
@@ -33,7 +33,7 @@ const AppDialog: React.FC<AppDialogProps> = ({
     onClose,
     onConfirm,
     closeText,
-    confirmText = "Confirm",
+    confirmText, // Không set default ở đây để check được việc user có truyền hay không
     isDestructive = false,
 }) => {
 
@@ -42,44 +42,36 @@ const AppDialog: React.FC<AppDialogProps> = ({
         switch (type) {
             case 'success':
                 return {
-                    icon: 'checkmark-circle-outline', // ✅ tồn tại
-                    color: theme.colors.success, // Xanh lá
+                    icon: 'checkmark-circle-outline',
+                    color: theme.colors.success,
                     bgColor: 'rgba(34, 197, 94, 0.1)',
-                    defaultBtn: 'Great!',
+                    defaultBtn: 'Great!', // Text mặc định nếu không truyền confirmText
                 };
-
             case 'error':
                 return {
-                    icon: 'alert-circle', // ✅ tồn tại
-                    color: theme.colors.error, // Đỏ
+                    icon: 'alert-circle',
+                    color: theme.colors.error,
                     bgColor: '#FEF2F2',
                     defaultBtn: 'Try Again',
                 };
-
             case 'warning':
                 return {
-                    icon: 'warning-outline', // ✅ tồn tại
+                    icon: 'warning-outline',
                     color: theme.colors.warning || '#F59E0B',
                     bgColor: '#FFFBEB',
                     defaultBtn: 'Understood',
                 };
-
             case 'confirm':
                 return {
-                    icon: 'help-sharp', // ✅ tồn tại
-                    color: isDestructive
-                        ? theme.colors.error
-                        : theme.colors.primary,
-                    bgColor: isDestructive
-                        ? '#FEF2F2'
-                        : 'rgba(91, 194, 54, 0.1)',
+                    icon: 'help-sharp',
+                    color: isDestructive ? theme.colors.error : theme.colors.primary,
+                    bgColor: isDestructive ? '#FEF2F2' : 'rgba(91, 194, 54, 0.1)',
                     defaultBtn: 'Confirm',
                 };
-
             case 'info':
             default:
                 return {
-                    icon: 'information-circle-outline', // ✅ tồn tại
+                    icon: 'information-circle-outline',
                     color: theme.colors.primary,
                     bgColor: 'rgba(91, 194, 54, 0.1)',
                     defaultBtn: 'OK',
@@ -88,24 +80,36 @@ const AppDialog: React.FC<AppDialogProps> = ({
     };
 
     const config = getConfig();
-    const finalCloseText = closeText || (type === 'confirm' ? 'Cancel' : config.defaultBtn);
+
+    // Logic Text nút bấm
+    const isConfirmType = type === 'confirm';
+    // Nút huỷ (chỉ hiện khi type=confirm)
+    const cancelLabel = closeText || 'Cancel';
+    // Nút chính (Confirm/OK/Great): Ưu tiên prop confirmText -> rồi mới đến default của type
+    const primaryLabel = confirmText || config.defaultBtn;
+
+    // Logic Action nút chính
+    const handlePrimaryPress = () => {
+        if (onConfirm) {
+            onConfirm();
+        } else {
+            onClose();
+        }
+    };
 
     return (
         <Modal
             animationType="fade"
             transparent={true}
             visible={visible}
-            onRequestClose={onClose} // Android hardware back button
+            onRequestClose={onClose}
         >
-            {/* Lớp nền mờ */}
             <TouchableWithoutFeedback onPress={onClose}>
                 <View style={styles.overlay}>
-
-                    {/* Nội dung Dialog (Chặn click xuyên qua) */}
                     <TouchableWithoutFeedback>
                         <View style={styles.dialogContainer}>
 
-                            {/* 1. Icon Circle */}
+                            {/* 1. Icon */}
                             <View style={[styles.iconCircle, { backgroundColor: config.bgColor }]}>
                                 <Ionicons
                                     name={config.icon as any}
@@ -114,26 +118,26 @@ const AppDialog: React.FC<AppDialogProps> = ({
                                 />
                             </View>
 
-                            {/* 2. Text Content */}
+                            {/* 2. Content */}
                             <View style={styles.textContainer}>
                                 <AppText size="lg" weight="bold" centered style={{ marginBottom: 8 }} color={theme.colors.text.primary}>
                                     {title}
                                 </AppText>
-                                {message && (
+                                {message ? (
                                     <AppText size="md" color={theme.colors.text.secondary} centered style={{ lineHeight: 22 }}>
                                         {message}
                                     </AppText>
-                                )}
+                                ) : null}
                             </View>
 
-                            {/* 3. Action Buttons */}
+                            {/* 3. Buttons */}
                             <View style={styles.buttonRow}>
-                                {type === 'confirm' ? (
-                                    // --- LAYOUT 2 NÚT (Confirm Type) ---
+                                {isConfirmType ? (
+                                    // --- LAYOUT 2 NÚT (Confirm) ---
                                     <>
                                         <View style={styles.buttonWrapper}>
                                             <AppButton
-                                                title={finalCloseText}
+                                                title={cancelLabel}
                                                 onPress={onClose}
                                                 variant="outline"
                                                 style={{ marginBottom: 0 }}
@@ -142,10 +146,9 @@ const AppDialog: React.FC<AppDialogProps> = ({
                                         <View style={{ width: 12 }} />
                                         <View style={styles.buttonWrapper}>
                                             <AppButton
-                                                title={confirmText}
-                                                onPress={onConfirm}
+                                                title={primaryLabel}
+                                                onPress={handlePrimaryPress}
                                                 variant="primary"
-                                                // Nếu là hành động nguy hiểm, đổi màu nút thành đỏ
                                                 style={[
                                                     { marginBottom: 0 },
                                                     isDestructive && { backgroundColor: theme.colors.error, borderColor: theme.colors.error }
@@ -157,10 +160,13 @@ const AppDialog: React.FC<AppDialogProps> = ({
                                     // --- LAYOUT 1 NÚT (Success/Error/Info) ---
                                     <View style={[styles.buttonWrapper, { flex: 0, width: '100%' }]}>
                                         <AppButton
-                                            title={finalCloseText}
-                                            onPress={onClose}
+                                            title={primaryLabel} // Sẽ hiện "OK" nếu bạn truyền confirmText="OK"
+                                            onPress={handlePrimaryPress} // Gọi onConfirm nếu có
                                             variant="primary"
-                                            style={[{ marginBottom: 0 }, { backgroundColor: config.color, borderColor: config.color }]}
+                                            style={[
+                                                { marginBottom: 0 },
+                                                { backgroundColor: config.color, borderColor: config.color }
+                                            ]}
                                         />
                                     </View>
                                 )}
@@ -186,10 +192,9 @@ const styles = StyleSheet.create({
         width: '100%',
         maxWidth: 340,
         backgroundColor: 'white',
-        borderRadius: theme.radius.xl, // 30
+        borderRadius: theme.radius.xl,
         padding: theme.spacing.lg,
         alignItems: 'center',
-        // Shadow
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.25,

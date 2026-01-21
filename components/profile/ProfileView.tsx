@@ -49,67 +49,80 @@ function formatMemberSince(input?: string | null) {
   if (!input) return "-";
   const d = new Date(input);
   if (Number.isNaN(d.getTime())) return "-";
-
-  // hiển thị kiểu: Jan 2026
   return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
 const ProfileView = () => {
   const profile = useProfileStore((s) => s.profile);
   const profileLoading = useProfileStore((s) => s.isLoading);
-  const profileError = useProfileStore((s) => s.error);
+  const clearProfile = useProfileStore((s) => s.clear);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const goFeedback = () => router.push("/profile/send-feedback");
+  // ✅ Xác định chế độ Guest: Nếu không có profile thật thì coi là Guest
+  const isGuest = !profile;
+
+  const goFeedback = () => router.push("/feedback/form");
   const goSettings = () => router.push("/profile/setting");
 
   const openLogout = () => setShowLogoutDialog(true);
   const closeLogout = () => {
+    if (isGuest) {
+      router.replace("/auth/login");
+      return;
+    }
     if (isLoggingOut) return;
     setShowLogoutDialog(false);
   };
 
-  // fetch lần đầu nếu chưa có profile
   useEffect(() => {
-    if (!profile && !profileLoading) {
-      fetchProfile().catch(() => {});
-    }
+    const initProfile = async () => {
+      if (!profile && !profileLoading) {
+        const token = await tokenStore.getAccessToken();
+        if (token) {
+          fetchProfile().catch(() => {});
+        }
+      }
+    };
+    initProfile();
   }, [profile, profileLoading]);
 
-  // pull-to-refresh
   const onRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await fetchProfile({ silent: true });
+      const token = await tokenStore.getAccessToken();
+      if (token) {
+        await fetchProfile({ silent: true });
+      }
     } finally {
       setIsRefreshing(false);
     }
   };
 
-  // logout
   const confirmLogOut = async () => {
     if (isLoggingOut) return;
-
     setIsLoggingOut(true);
-    try {
-      const accessToken = await tokenStore.getAccessToken(); // ✅ theo tokenStore dạng get()/clear()
-      const guestKey = await guestStore.get();
 
+    try {
+      // Logic Logout/Login
+      const accessToken = await tokenStore.getAccessToken();
       if (accessToken) {
-        await authApi.logout();
-      } else {
-        if (guestKey) await guestStore.clear();
+        try {
+          await authApi.logout();
+        } catch {}
       }
+
+      await Promise.all([tokenStore.clearTokens(), guestStore.clear()]);
+      clearProfile();
 
       setShowLogoutDialog(false);
       router.replace("/auth/login");
     } catch (e) {
       await tokenStore.clearTokens();
       await guestStore.clear();
-
+      clearProfile();
       setShowLogoutDialog(false);
       router.replace("/auth/login");
     } finally {
@@ -117,7 +130,8 @@ const ProfileView = () => {
     }
   };
 
-  // loading state
+  // ✅ Loading State: Chỉ hiện khi chưa có gì để hiển thị
+  // (Nếu đang refresh thì scroll view sẽ lo)
   if (profileLoading && !profile) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
@@ -126,50 +140,37 @@ const ProfileView = () => {
     );
   }
 
-  // no profile state
-  if (!profile) {
-    return (
-      <View style={styles.container}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            { flexGrow: 1, justifyContent: "center", alignItems: "center" },
-          ]}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
-        >
-          <AppText size="md" color={theme.colors.text.secondary}>
-            {profileError ? `Không tải được profile: ${profileError}` : "Chưa có dữ liệu profile."}
-          </AppText>
-          <AppText size="sm" color={theme.colors.text.secondary} style={{ marginTop: 8 }}>
-            Kéo xuống để thử lại.
-          </AppText>
-        </ScrollView>
-      </View>
-    );
-  }
+  // ✅ CHUẨN BỊ DATA HIỂN THỊ (Guest vs Real)
+  const userName = isGuest ? "Guest User" : (profile?.name?.trim() || "User");
+  // const userEmail = isGuest ? "Sign in to save progress" : (profile?.email || ""); 
+  // (Nếu profile không có field email thì bỏ qua hoặc lấy từ chỗ khác)
+  
+  const avatarUrl = isGuest ? undefined : (profile?.avatarURL || undefined);
 
-  // map profile => UI
-  const userName = profile.name?.trim() || "User";
-  const avatarUrl = profile.avatarURL || undefined;
+  const streak = isGuest ? 0 : (profile?.currentStreak ?? 0);
+  const bestStreak = isGuest ? 0 : (profile?.longestStreak ?? 0);
 
-  const streak = profile.currentStreak ?? 0;
-  const bestStreak = profile.longestStreak ?? 0;
-
-  const lessons = profile.stats?.lessonsDone ?? 0;
-  const words = profile.stats?.wordsLearned ?? 0;
+  const lessons = isGuest ? 0 : (profile?.stats?.lessonsDone ?? 0);
+  const words = isGuest ? 0 : (profile?.stats?.wordsLearned ?? 0);
+  
   const accuracy = useMemo(() => {
-    const v = profile.stats?.accuracy;
+    if (isGuest) return "-";
+    const v = profile?.stats?.accuracy;
     return typeof v === "number" ? `${v}%` : "-";
-  }, [profile.stats?.accuracy]);
+  }, [profile, isGuest]);
 
-  const joinDate = useMemo(() => formatMemberSince(profile.memberSince ?? null), [profile.memberSince]);
+  const joinDate = useMemo(() => {
+    if (isGuest) return "Just now";
+    return formatMemberSince(profile?.memberSince ?? null);
+  }, [profile, isGuest]);
 
-  // map rankLevel => badge (tuỳ design)
-  const rankLevel = profile.currentRank?.rankLevel ?? 1;
+  const currentXP = isGuest ? 0 : (profile?.currentXP ?? 0);
+  const currentRank = isGuest ? null : (profile?.currentRank ?? null);
+  const nextRank = isGuest ? null : (profile?.nextRank ?? null);
+
+  const rankLevel = currentRank?.rankLevel ?? 1;
   const rankKey = rankLevel >= 10 ? "gold" : rankLevel >= 5 ? "silver" : "bronze";
-
-  // TODO: map skin/frame nếu bạn muốn dùng activeSkin
-  const frameId = "frame2" as any;
+  const frameId = "frame2" as any; // Guest dùng frame mặc định
 
   return (
     <View style={styles.container}>
@@ -193,17 +194,21 @@ const ProfileView = () => {
                 {userName}
               </AppText>
 
-              <AppText size="sm" color="rgba(255,255,255,0.8)" style={styles.userEmail}>
-              </AppText>
+              {/* Nếu là Guest thì hiện nhắc nhở nhẹ */}
+              {isGuest && (
+                <AppText size="sm" color="rgba(255,255,255,0.8)" style={styles.userEmail}>
+                  (Chế độ Khách)
+                </AppText>
+              )}
             </View>
           }
         />
 
         <View style={styles.levelCardWrapper}>
           <HomeLevelCard
-            currentXP={profile.currentXP ?? 0}
-            currentRank={profile.currentRank ?? null}
-            nextRank={profile.nextRank ?? null}
+            currentXP={currentXP}
+            currentRank={currentRank}
+            nextRank={nextRank}
           />
         </View>
 
@@ -247,15 +252,27 @@ const ProfileView = () => {
 
           <MenuItem icon="settings-outline" label="Settings" onPress={goSettings} />
 
-          <TouchableOpacity style={styles.logoutButton} onPress={openLogout} disabled={isLoggingOut}>
+          {/* ✅ Nút Đổi trạng thái: Logout (Real) hoặc Login (Guest) */}
+          <TouchableOpacity 
+            style={[
+              styles.logoutButton, 
+              isGuest && { backgroundColor: theme.colors.primary + '10', borderColor: theme.colors.primary }
+            ]} 
+            onPress={openLogout} 
+            disabled={isLoggingOut}
+          >
             <Ionicons
-              name="log-out-outline"
+              name={isGuest ? "log-in-outline" : "log-out-outline"}
               size={theme.iconSizes.lg}
-              color={theme.colors.error}
+              color={isGuest ? theme.colors.primary : theme.colors.error}
               style={styles.logoutIcon}
             />
-            <AppText size="md" weight="bold" color={theme.colors.error}>
-              Log Out
+            <AppText 
+              size="md" 
+              weight="bold" 
+              color={isGuest ? theme.colors.primary : theme.colors.error}
+            >
+              {isGuest ? "Log In Now" : "Log Out"}
             </AppText>
           </TouchableOpacity>
         </View>
@@ -274,12 +291,12 @@ const ProfileView = () => {
 
       <AppDialog
         visible={showLogoutDialog}
-        type="confirm"
-        title="Log Out"
-        message="Are you sure you want to log out?"
-        isDestructive
-        confirmText={isLoggingOut ? "Logging out..." : "Log Out"}
-        closeText="Cancel"
+        type={isGuest ? "info" : "confirm"} // Guest thì hiển thị kiểu nhẹ nhàng hơn
+        title={isGuest ? "Đăng nhập" : "Log Out"}
+        message={isGuest ? "Đăng nhập để lưu tiến độ học tập của bạn." : "Are you sure you want to log out?"}
+        isDestructive={!isGuest}
+        confirmText={isGuest ? "Go to Login" : (isLoggingOut ? "Logging out..." : "Log Out")}
+        closeText={isGuest ? "Đăng nhập" : "Cancel"}
         onClose={closeLogout}
         onConfirm={confirmLogOut}
       />

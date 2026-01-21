@@ -122,6 +122,15 @@ const SettingView = () => {
                 {/* --- SECTION 3: SUPPORT --- */}
                 <SectionContainer title="Support">
                     <MenuItem
+                        icon="chatbox-ellipses-outline"
+                        label="Feedback"
+                        subtitle="Share your thoughts & bug reports"
+                        onPress={() => router.replace('/feedback/homepage')} // Điều hướng đến trang FeedbackView
+                        showBorder={false}
+                        showDivider={true}
+                    />
+
+                    <MenuItem
                         icon="help-circle-outline"
                         label="Help Center"
                         subtitle="Get answers to your questions"

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import theme from '../../theme';
@@ -8,120 +8,319 @@ import DetailSection from './core/DetailSection';
 import WordCard from './core/WordCard';
 import WordInfoCard from './core/WordInfoCard';
 
+// Import AppDialog
+import AppDialog, { DialogType } from '../core/AppDialog';
+
+// Import API
+import { dictionaryApi, WordDto } from '../../api/dictionary';
+
+// Import Auth Utils
+import { requireAuth } from '../../utils/authUtils';
+
 export interface DictionaryDetailData {
     id: string;
     term: string;
     phonetic: string;
-    category: string;
+    topicId: string;
+    topicName: string;
     level: string;
-    definition: string;
+    wordLevel?: number;
+    definitionEN: string; 
+    definitionVN: string;
     example: string;
     notes?: string;
+    // 👇 UPDATE: Thêm trường này để biết trạng thái đã lưu hay chưa từ API
+    isPinned?: boolean; 
 }
 
-interface DictionaryDetailViewProps {
-    data: DictionaryDetailData;
-    onSaveNote?: (id: string, note: string) => void;
-    onSpeak?: (term: string) => void;
-}
-
-// --- MOCK API ---
-const fetchRelatedWordsApi = async (category: string, currentId: string): Promise<DictionaryDetailData[]> => {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const MOCK_DB = Array.from({ length: 10 }).map((_, i) => ({
-                id: `related_${category}_${i}`,
-                term: `Related ${i + 1}`,
-                phonetic: "/rɪˈleɪtɪd/",
-                category: category,
-                level: i % 2 === 0 ? 'intermediate' : 'advanced',
-                definition: `This is a related term for ${category}.`,
-                example: `An example sentence using related term ${i + 1}.`,
-            }));
-            const filtered = MOCK_DB.filter(item => item.id !== currentId);
-            const limit = 2;
-            const result = filtered.slice(0, limit);
-            resolve(result as DictionaryDetailData[]);
-        }, 600);
-    });
-};
-
-const DictionaryDetailView: React.FC<DictionaryDetailViewProps> = ({
-    data,
-    onSaveNote,
-    onSpeak
-}) => {
+const DictionaryDetailView = () => {
     const router = useRouter();
+    const { id } = useLocalSearchParams<{ id: string }>();
 
-    if (!data) return null;
+    // State Data
+    const [data, setData] = useState<DictionaryDetailData | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
+    // State Toggle Language
+    const [isEnglish, setIsEnglish] = useState(true);
+
+    // State Note
     const [isEditingNote, setIsEditingNote] = useState(false);
-    const [noteText, setNoteText] = useState(data.notes || '');
+    const [noteText, setNoteText] = useState('');
+    const [isSavingNote, setIsSavingNote] = useState(false);
 
-    // State cho Related Words
+    // State Related Words
     const [relatedWords, setRelatedWords] = useState<DictionaryDetailData[]>([]);
     const [isLoadingRelated, setIsLoadingRelated] = useState(false);
 
-    // Effect: Update note when data changes
-    useEffect(() => {
-        setNoteText(data.notes || '');
-    }, [data.notes]);
+    // 👇 UPDATE: State quản lý Bookmarks
+    const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
 
-    // Effect: Load Related Words
-    useEffect(() => {
-        const loadRelated = async () => {
-            if (!data.category) return;
-            setIsLoadingRelated(true);
-            try {
-                const words = await fetchRelatedWordsApi(data.category, data.id);
-                setRelatedWords(words);
-            } catch (error) {
-                console.log("Error fetching related words:", error);
-            } finally {
-                setIsLoadingRelated(false);
-            }
+    // State Dialog
+    const [dialogConfig, setDialogConfig] = useState<{
+        visible: boolean;
+        type: DialogType;
+        title: string;
+        message: string;
+        onConfirm?: () => void;
+        confirmText?: string;
+    }>({
+        visible: false,
+        type: 'info',
+        title: '',
+        message: '',
+    });
+
+    const mapWordToDetail = (w: WordDto): DictionaryDetailData => {
+        let levelStr = 'beginner';
+        if (w.level === 2) levelStr = 'intermediate';
+        if (w.level > 2) levelStr = 'advanced';
+
+        return {
+            id: w._id,
+            term: w.word,
+            phonetic: w.pronunciation || '',
+            topicId: w.topicId, 
+            topicName: w.topicName || 'General', 
+            level: levelStr,
+            wordLevel: w.level,
+            definitionEN: w.meaningEN || '',
+            definitionVN: w.meaningVN || '',
+            example: w.example || '',
+            notes: w.note || '',
+            // 👇 UPDATE: Map isPinned từ API (Giả sử API trả về field này)
+            isPinned: w.isPinned || false, 
         };
-        loadRelated();
-    }, [data.category, data.id]);
-
-    const handleSaveNote = () => {
-        if (onSaveNote) onSaveNote(data.id, noteText);
-        setIsEditingNote(false);
     };
 
-    const handleCancel = () => {
-        setNoteText(data.notes || '');
+    useEffect(() => {
+        const fetchDetail = async () => {
+            if (!id) return;
+            setIsLoading(true);
+            setError(null);
+            try {
+                const res = await dictionaryApi.getWordDetail(id);
+                const mappedData = mapWordToDetail(res.word);
+                
+                setData(mappedData);
+                setNoteText(mappedData.notes || '');
+                setIsEnglish(true); 
+
+                // 👇 UPDATE: Cập nhật state bookmarks nếu từ này đã được ghim
+                if (mappedData.isPinned) {
+                    setBookmarks(prev => new Set(prev).add(mappedData.id));
+                }
+                
+                fetchRelatedWords(mappedData.topicId, mappedData.id, mappedData.topicName);
+            } catch (err) {
+                console.error(err);
+                setError("Could not load word details.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchDetail();
+    }, [id]);
+
+    const fetchRelatedWords = async (topicId: string | undefined, currentId: string, topicName: string) => {
+        if (!topicId) return;
+        setIsLoadingRelated(true);
+        try {
+            const res = await dictionaryApi.listWords({
+                topicId: topicId,
+                page: 1,
+                pageSize: 6 
+            });
+
+            const related = (res.items || [])
+                .filter(item => String(item.id) !== currentId)
+                .slice(0, 5)
+                .map(item => {
+                    // 👇 UPDATE: Cập nhật bookmarks cho related words
+                    if (item.isPinned) {
+                        setBookmarks(prev => new Set(prev).add(String(item.id)));
+                    }
+
+                    return {
+                        id: String(item.id),
+                        term: item.term,
+                        phonetic: item.phonetic,
+                        topicId: topicId,
+                        topicName: topicName, 
+                        level: typeof item.level === 'string' ? item.level : 'beginner',
+                        definitionEN: item.definition, 
+                        definitionVN: "",
+                        example: item.example || '',
+                        isPinned: item.isPinned || false
+                    } as DictionaryDetailData;
+                });
+
+            setRelatedWords(related);
+        } catch (error) {
+            console.log("Error fetching related words:", error);
+        } finally {
+            setIsLoadingRelated(false);
+        }
+    };
+
+    // 👇 UPDATE: Hàm xử lý Bookmark (dùng requireAuth)
+    const toggleBookmark = (wordId: string) => {
+        requireAuth(
+            router,
+            setDialogConfig,
+            async () => {
+                // Logic chạy khi đã Login
+                const isCurrentlyBookmarked = bookmarks.has(wordId);
+
+                // 1. Optimistic Update (Cập nhật UI ngay lập tức)
+                setBookmarks(prev => {
+                    const newSet = new Set(prev);
+                    isCurrentlyBookmarked ? newSet.delete(wordId) : newSet.add(wordId);
+                    return newSet;
+                });
+
+                // 2. Call API
+                try {
+                    if (isCurrentlyBookmarked) {
+                        await dictionaryApi.unpinWord(wordId);
+                    } else {
+                        await dictionaryApi.pinWord(wordId);
+                    }
+                } catch (error) {
+                    console.error("Pin word error:", error);
+                    // Revert nếu lỗi
+                    setBookmarks(prev => {
+                        const newSet = new Set(prev);
+                        !isCurrentlyBookmarked ? newSet.delete(wordId) : newSet.add(wordId);
+                        return newSet;
+                    });
+                    setDialogConfig({
+                        visible: true,
+                        type: 'error',
+                        title: 'Lỗi',
+                        message: 'Không thể cập nhật trạng thái đã lưu. Vui lòng thử lại.',
+                    });
+                }
+            },
+            {
+                message: 'Bạn cần đăng nhập để lưu từ vựng vào kho cá nhân.'
+            }
+        );
+    };
+
+    const handleRequestEditNote = () => {
+        requireAuth(
+            router, 
+            setDialogConfig, 
+            () => setIsEditingNote(true), 
+            { message: 'Bạn cần đăng nhập để sử dụng tính năng Ghi chú cá nhân.' }
+        );
+    };
+
+    const handleSaveNote = async () => {
+        if (!data) return;
+        setIsSavingNote(true);
+        try {
+            await dictionaryApi.upsertNote(data.id, { note: noteText });
+            setData(prev => prev ? { ...prev, notes: noteText } : null);
+            setIsEditingNote(false);
+            setDialogConfig({
+                visible: true,
+                type: 'success',
+                title: 'Thành công',
+                message: 'Ghi chú đã được lưu.',
+                onConfirm: undefined, 
+                confirmText: undefined
+            });
+        } catch (error) {
+            console.error(error);
+            setDialogConfig({
+                visible: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: 'Không thể lưu ghi chú. Vui lòng thử lại.',
+            });
+        } finally {
+            setIsSavingNote(false);
+        }
+    };
+
+    const handleCancelNote = () => {
+        setNoteText(data?.notes || '');
         setIsEditingNote(false);
     };
 
     const handleStartQuiz = () => {
+        if (!data) return;
         router.replace({
             pathname: '/course/[id]',
             params: {
-                id: data.category,
-                title: `${data.category}`
+                id: `${data.topicId}:${data.wordLevel}`,
+                title: data.topicName,
+                level: data.wordLevel ?? 1,
+                fromTab: "TOPIC"
             }
         });
     };
 
     const handleRelatedWordPress = (item: DictionaryDetailData) => {
+        // Reset navigation để load từ mới
         router.replace({
             pathname: '/dictionary/[id]',
-            params: {
-                id: item.id,
-                term: item.term,
-                phonetic: item.phonetic,
-                definition: item.definition,
-                category: item.category,
-                level: item.level,
-                example: item.example
-            }
+            params: { id: item.id }
         });
     };
 
+    // 👇 Helper Render nút Bookmark trên Header
+    const renderHeaderRight = () => {
+        if (!data) return null;
+        const isBookmarked = bookmarks.has(data.id);
+        
+        return (
+            <TouchableOpacity onPress={() => toggleBookmark(data.id)}>
+                <Ionicons
+                    name={isBookmarked ? "bookmark" : "bookmark-outline"}
+                    size={24}
+                    color={theme.colors.primary}
+                />
+            </TouchableOpacity>
+        );
+    };
+
+    if (isLoading) {
+        return (
+            <View style={[styles.container, styles.center]}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+        );
+    }
+
+    if (error || !data) {
+        return (
+            <View style={[styles.container, styles.center]}>
+                <AppText color={theme.colors.error}>{error || "Word not found"}</AppText>
+                <AppButton 
+                    title="Go Back" 
+                    onPress={() => router.back()} 
+                    variant="outline"
+                    style={{ marginTop: 20 }}
+                />
+            </View>
+        );
+    }
+
+    const currentDefinition = isEnglish 
+        ? (data.definitionEN || "No English definition available.")
+        : (data.definitionVN || "Chưa có định nghĩa tiếng Việt.");
+
     return (
         <View style={styles.container}>
-            <AppDetailHeader title="Word Details" />
+            {/* 👇 UPDATE: Truyền nút Bookmark vào prop rightContent */}
+            <AppDetailHeader 
+                title="Word Details" 
+                rightContent={renderHeaderRight()}
+            />
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
@@ -129,22 +328,45 @@ const DictionaryDetailView: React.FC<DictionaryDetailViewProps> = ({
             >
                 {/* Thông tin chính */}
                 <WordInfoCard
-                    term={data.term || ''}
-                    phonetic={data.phonetic || ''}
-                    category={data.category || ''}
-                    level={data.level || ''}
-                    onSpeak={() => onSpeak?.(data.term || '')}
+                    term={data.term}
+                    phonetic={data.phonetic}
+                    category={data.topicName} 
+                    level={data.level}
                 />
 
-                <DetailSection title="Definition" content={data.definition || ''} />
+                {/* Section Definition */}
+                <View style={styles.definitionWrapper}>
+                    <View style={styles.definitionHeader}>
+                        <AppText size="md" weight="bold" color={theme.colors.text.primary}>
+                            Definition
+                        </AppText>
+                        
+                        <TouchableOpacity 
+                            style={styles.langToggle} 
+                            onPress={() => setIsEnglish(!isEnglish)}
+                            activeOpacity={0.7}
+                        >
+                            <AppText size="xs" weight="bold" color={theme.colors.primary}>
+                                {isEnglish ? "VN   🇻🇳" : "EN   🇬🇧"}
+                            </AppText>
+                            <Ionicons name="swap-horizontal" size={theme.fontSizes.md} color={theme.colors.primary} style={{marginLeft: theme.spacing.sm}} />
+                        </TouchableOpacity>
+                    </View>
+                    
+                    <AppText size="md" color={theme.colors.text.primary} style={{ lineHeight: 24 }}>
+                        {currentDefinition}
+                    </AppText>
+                </View>
 
-                <DetailSection
-                    title="Example"
-                    content={data.example || ''}
-                    backgroundColor={theme.colors.background}
-                />
+                {data.example ? (
+                    <DetailSection
+                        title="Example"
+                        content={data.example}
+                        backgroundColor={theme.colors.background}
+                    />
+                ) : null}
 
-                {/* Phần Personal Notes */}
+                {/* Personal Notes */}
                 <View style={styles.noteSection}>
                     <View style={styles.noteHeader}>
                         <View style={styles.titleRow}>
@@ -154,7 +376,7 @@ const DictionaryDetailView: React.FC<DictionaryDetailViewProps> = ({
                             </AppText>
                         </View>
                         {!isEditingNote && (
-                            <TouchableOpacity onPress={() => setIsEditingNote(true)}>
+                            <TouchableOpacity onPress={handleRequestEditNote}>
                                 <AppText size="sm" color={theme.colors.secondary} weight="bold">
                                     {noteText ? "Edit Note" : "Add Note"}
                                 </AppText>
@@ -168,22 +390,24 @@ const DictionaryDetailView: React.FC<DictionaryDetailViewProps> = ({
                                 placeholder="Add your personal notes here..."
                                 value={noteText}
                                 onChangeText={setNoteText}
-                                multiline={true}      // Cho phép nhiều dòng
-                                numberOfLines={4}     // Độ cao mặc định khoảng 4 dòng
+                                multiline={true}
+                                numberOfLines={4}
                             />
 
                             <View style={styles.actionButtons}>
                                 <AppButton
-                                    title="Save Note"
+                                    title={isSavingNote ? "Saving..." : "Save Note"}
                                     onPress={handleSaveNote}
                                     style={styles.saveBtn}
                                     icon="save-outline"
+                                    disabled={isSavingNote}
                                 />
                                 <AppButton
                                     title="Cancel"
                                     variant="outline"
-                                    onPress={handleCancel}
+                                    onPress={handleCancelNote}
                                     style={styles.cancelBtn}
+                                    disabled={isSavingNote}
                                 />
                             </View>
                         </View>
@@ -194,7 +418,6 @@ const DictionaryDetailView: React.FC<DictionaryDetailViewProps> = ({
                     )}
                 </View>
 
-                {/* --- SEPARATOR --- */}
                 <View style={styles.separator} />
 
                 {/* Quiz Action */}
@@ -203,7 +426,7 @@ const DictionaryDetailView: React.FC<DictionaryDetailViewProps> = ({
                         Master this topic
                     </AppText>
                     <AppButton
-                        title={`Take a ${data.category} Quiz`}
+                        title={`Take a Quiz (${data.topicName})`}
                         icon="game-controller-outline"
                         onPress={handleStartQuiz}
                         style={styles.quizButton}
@@ -213,15 +436,12 @@ const DictionaryDetailView: React.FC<DictionaryDetailViewProps> = ({
                 {/* Related Words */}
                 <View style={styles.relatedContainer}>
                     <AppText size="md" weight="bold" style={styles.relatedTitle}>
-                        Related Words ({data.category})
+                        Related Words
                     </AppText>
 
                     {isLoadingRelated ? (
                         <View style={styles.loadingContainer}>
                             <ActivityIndicator size="small" color={theme.colors.primary} />
-                            <AppText size="sm" color={theme.colors.text.secondary} style={{ marginTop: 8 }}>
-                                Finding related terms...
-                            </AppText>
                         </View>
                     ) : (
                         relatedWords.length > 0 ? (
@@ -231,11 +451,13 @@ const DictionaryDetailView: React.FC<DictionaryDetailViewProps> = ({
                                     id={item.id}
                                     term={item.term}
                                     phonetic={item.phonetic}
-                                    definition={item.definition}
+                                    definition={item.definitionEN}
                                     level={item.level as any}
-                                    category={item.category}
+                                    category={item.topicName}
                                     example={item.example}
-                                    isBookmarked={false}
+                                    // 👇 UPDATE: Truyền trạng thái bookmark và hàm xử lý
+                                    isBookmarked={bookmarks.has(item.id)} 
+                                    onBookmarkPress={() => toggleBookmark(item.id)}
                                     onPress={() => handleRelatedWordPress(item)}
                                 />
                             ))
@@ -249,13 +471,52 @@ const DictionaryDetailView: React.FC<DictionaryDetailViewProps> = ({
 
                 <View style={{ height: 40 }} />
             </ScrollView>
+
+            <AppDialog
+                visible={dialogConfig.visible}
+                type={dialogConfig.type}
+                title={dialogConfig.title}
+                message={dialogConfig.message}
+                confirmText={dialogConfig.confirmText}
+                onConfirm={dialogConfig.onConfirm}
+                onClose={() => setDialogConfig(prev => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.colors.background },
+    center: { justifyContent: 'center', alignItems: 'center' },
     scrollContent: { paddingBottom: 60 },
+    
+    definitionWrapper: {
+        backgroundColor: 'white',
+        padding: theme.spacing.lg,
+        marginHorizontal: theme.spacing.md,
+        marginBottom: theme.spacing.md,
+        borderRadius: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    definitionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.sm,
+    },
+    langToggle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.primaryLight,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+
     noteSection: {
         backgroundColor: 'white',
         padding: theme.spacing.lg,

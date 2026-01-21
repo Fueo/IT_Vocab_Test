@@ -9,12 +9,15 @@ import theme from '../../theme';
 interface CourseHeaderProps {
     title: string;
     subtitle?: string;
+    // 👇 UPDATE: Thêm prop này để nhận component bên phải
+    rightContent?: React.ReactNode; 
 }
 
-const DetailHeader: React.FC<CourseHeaderProps> = ({ title, subtitle }) => {
+const DetailHeader: React.FC<CourseHeaderProps> = ({ title, subtitle, rightContent }) => {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
+                {/* 1. Back Button (Left) */}
                 <TouchableOpacity
                     onPress={() => router.back()}
                     style={styles.backButton}
@@ -23,16 +26,25 @@ const DetailHeader: React.FC<CourseHeaderProps> = ({ title, subtitle }) => {
                     <Ionicons name="arrow-back" size={24} color={theme.colors.text.primary} />
                 </TouchableOpacity>
 
+                {/* 2. Text Content (Center - Flex 1) */}
                 <View style={styles.textContainer}>
-                    <AppText size="lg" weight="bold" color={theme.colors.text.primary}>
+                    <AppText size="lg" weight="bold" color={theme.colors.text.primary} numberOfLines={1}>
                         {title}
                     </AppText>
                     {subtitle && (
-                        <AppText size="sm" color={theme.colors.text.secondary}>
+                        <AppText size="sm" color={theme.colors.text.secondary} numberOfLines={1}>
                             {subtitle}
                         </AppText>
                     )}
                 </View>
+
+                {/* 3. Right Content (Right) */}
+                {/* Nếu có truyền rightContent thì hiển thị */}
+                {rightContent && (
+                    <View style={styles.rightContainer}>
+                        {rightContent}
+                    </View>
+                )}
             </View>
         </SafeAreaView>
     );
@@ -41,23 +53,29 @@ const DetailHeader: React.FC<CourseHeaderProps> = ({ title, subtitle }) => {
 const styles = StyleSheet.create({
     safeArea: {
         backgroundColor: theme.colors.background,
-        // Sử dụng spacing.xxl hoặc sda tùy vào độ cao bạn muốn tránh status bar
         paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
     },
     container: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: theme.spacing.md, // Chỉnh lại md (16) để khớp margin tiêu chuẩn của bạn
+        paddingHorizontal: theme.spacing.md,
         paddingVertical: theme.spacing.md,
         borderBottomWidth: 1,
         borderBottomColor: theme.colors.border,
     },
     backButton: {
         marginRight: theme.spacing.md,
-        padding: theme.spacing.xs, // Thay 4px bằng theme.spacing.xs
+        padding: theme.spacing.xs,
     },
     textContainer: {
-        flex: 1,
+        flex: 1, // Chiếm hết khoảng trống ở giữa -> Đẩy rightContent sang phải
+        justifyContent: 'center',
+    },
+    // 👇 Style cho nút bên phải
+    rightContainer: {
+        marginLeft: theme.spacing.md,
+        justifyContent: 'center',
+        alignItems: 'center',
     }
 });
 

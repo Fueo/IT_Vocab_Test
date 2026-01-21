@@ -2,11 +2,11 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 
 // Import Component đã tách
-import SendFeedbackView from '@/components/profile/SendFeedbackView';
+import FeedbackView from '@/components/feedback/FeedbackView';
 
-const SendFeedbackScreen = () => {
+const FeedbackScreen = () => {
     return (
-        <SendFeedbackView />
+        <FeedbackView />
     );
 };
 
@@ -16,4 +16,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default SendFeedbackScreen;
+export default FeedbackScreen;

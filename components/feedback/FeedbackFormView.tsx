@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router'; // ✅ Thêm useLocalSearchParams
+import React, { useEffect, useState } from 'react';
 import {
-    Alert,
     Keyboard,
     KeyboardAvoidingView,
     Platform,
@@ -14,16 +13,32 @@ import {
 } from 'react-native';
 
 import theme from '../../theme';
-import { AppBanner, AppButton, AppDetailHeader, AppInput, AppText } from '../core';
+import {
+    AppBanner,
+    AppButton,
+    AppDetailHeader,
+    AppDialog,
+    AppInput,
+    AppText,
+} from '../core';
+
+import { feedbackApi, FeedbackStatus } from '../../api/feedback';
+import { requireAuth } from '../../utils/authUtils';
 
 // Định nghĩa các loại Reason khớp với DB
 type FeedbackReason = 'bug' | 'suggestion' | 'general';
 
-const SendFeedbackView = () => {
+const FeedbackFormView = () => {
+    const router = useRouter();
+    // ✅ LOGIC MỚI: Lấy ID để biết đang sửa hay tạo mới
+    const { id } = useLocalSearchParams<{ id: string }>();
+    const isEditMode = !!id;
+
     // --- State Dữ liệu ---
     const [reason, setReason] = useState<FeedbackReason>('general');
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
+    const [status, setStatus] = useState<FeedbackStatus>('open'); // ✅ Thêm status để check quyền sửa
 
     // --- State Lỗi & Loading ---
     const [errors, setErrors] = useState({
@@ -32,72 +47,111 @@ const SendFeedbackView = () => {
     });
     const [isSending, setIsSending] = useState(false);
 
-    // --- Config UI cho Reason ---
+    // --- State Dialog ---
+    const [dialogConfig, setDialogConfig] = useState<{
+        visible: boolean;
+        type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+        title: string;
+        message: string;
+        onConfirm?: () => void;
+        confirmText?: string;
+        isDestructive?: boolean;
+    }>({
+        visible: false,
+        type: 'info',
+        title: '',
+        message: '',
+    });
+
+    // ✅ LOGIC MỚI: Chỉ cho phép sửa khi: (Là tạo mới) HOẶC (Đang sửa và status là 'open')
+    const isEditable = !isEditMode || status === 'open';
+
     const FEEDBACK_OPTIONS: { id: FeedbackReason; label: string; icon: keyof typeof Ionicons.glyphMap; color: string; bgColor: string }[] = [
         { id: 'bug', label: 'Report Bug', icon: 'alert-circle', color: '#DC2626', bgColor: '#FEE2E2' },
         { id: 'suggestion', label: 'Suggestion', icon: 'chatbubble-ellipses', color: '#2563EB', bgColor: '#EFF6FF' },
         { id: 'general', label: 'General', icon: 'paper-plane', color: '#16A34A', bgColor: '#DCFCE7' }
     ];
 
-    // --- Helper: Xóa lỗi khi nhập ---
+    // --- 1. Load Data (Nếu có ID) ---
+    useEffect(() => {
+        requireAuth(
+            router,
+            setDialogConfig,
+            async () => {
+                if (isEditMode) {
+                    try {
+                        // Tạm thời gọi list và filter (do BE chưa có API getDetail)
+                        const res = await feedbackApi.getMyFeedback({ page: 1, pageSize: 100 });
+                        const found = res.items.find(item => item.id === id);
+                        
+                        if (found) {
+                            setTitle(found.title);
+                            setContent(found.content);
+                            setReason((found.reason as FeedbackReason) || 'general');
+                            setStatus(found.status);
+                        } else {
+                            // Không tìm thấy -> Báo lỗi
+                            setDialogConfig({
+                                visible: true, type: 'error', title: 'Error', message: 'Feedback not found.',
+                                onConfirm: () => { setDialogConfig(p => ({...p, visible: false})); router.back(); }
+                            });
+                        }
+                    } catch (error) { console.error(error); }
+                }
+            },
+            { title: 'Yêu cầu đăng nhập', message: 'Vui lòng đăng nhập để tiếp tục.' }
+        );
+    }, [id]);
+
     const handleChange = (field: 'title' | 'content', value: string) => {
         if (field === 'title') setTitle(value);
         if (field === 'content') setContent(value);
-
-        // Nếu đang có lỗi ở trường này thì xóa đi
-        if (errors[field]) {
-            setErrors(prev => ({ ...prev, [field]: '' }));
-        }
+        if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
     };
 
-    // --- Handler ---
+    // --- Handler: Save (Xử lý cả Create và Update) ---
     const handleSend = async () => {
-        // 1. Reset & Validate
         let newErrors = { title: '', content: '' };
         let hasError = false;
 
-        if (!title.trim()) {
-            newErrors.title = "Please enter a title for your feedback.";
-            hasError = true;
-        }
-
-        if (!content.trim()) {
-            newErrors.content = "Please enter the content of your feedback.";
-            hasError = true;
-        }
-
+        if (!title.trim()) { newErrors.title = "Please enter a title."; hasError = true; }
+        if (!content.trim()) { newErrors.content = "Please enter content."; hasError = true; }
         setErrors(newErrors);
-
-        // Nếu có lỗi thì dừng, không hiện Alert
         if (hasError) return;
 
-        // 2. Gửi dữ liệu
-        setIsSending(true);
-        try {
-            const payload = {
-                Title: title,
-                Reason: reason,
-                Content: content,
-            };
-            console.log("Sending Feedback to DB:", payload);
-
-            // Mock API Call
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            // Success Alert (Vẫn giữ Alert cho thông báo thành công)
-            Alert.alert("Thank You", "We have received your feedback!", [
-                { text: "OK", onPress: () => router.back() }
-            ]);
-        } catch (error) {
-            Alert.alert("Error", "Could not send feedback. Please try again.");
-        } finally {
-            setIsSending(false);
-        }
+        requireAuth(router, setDialogConfig, async () => {
+            setIsSending(true);
+            try {
+                if (isEditMode) {
+                    // 👉 LOGIC UPDATE
+                    await feedbackApi.updateFeedback(id!, { title: title.trim(), reason, content: content.trim() });
+                    setDialogConfig({
+                        visible: true, type: 'success', title: 'Updated', message: 'Your feedback has been updated successfully.',
+                        confirmText: 'OK', onConfirm: () => { setDialogConfig(p => ({...p, visible: false})); router.back(); }
+                    });
+                } else {
+                    // 👉 LOGIC CREATE
+                    await feedbackApi.createFeedback({ title: title.trim(), reason, content: content.trim() });
+                    setDialogConfig({
+                        visible: true, type: 'success', title: 'Thank You', message: 'We have received your feedback!',
+                        confirmText: 'OK', onConfirm: () => { setDialogConfig(p => ({...p, visible: false})); router.back(); }
+                    });
+                }
+            } catch (error: any) {
+                setDialogConfig({
+                    visible: true, type: 'error', title: 'Error', message: error?.response?.data?.message || "Error occurred.",
+                    onConfirm: () => setDialogConfig(prev => ({ ...prev, visible: false }))
+                });
+            } finally {
+                setIsSending(false);
+            }
+        });
     };
 
     return (
         <View style={styles.container}>
-            <AppDetailHeader title="Send Feedback" />
+            {/* ✅ Header đổi tiêu đề linh hoạt */}
+            <AppDetailHeader title={isEditMode ? "Feedback Details" : "Send Feedback"} />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -128,11 +182,13 @@ const SendFeedbackView = () => {
                                                 elevation: 4,
                                                 transform: [{ scale: 1.02 }]
                                             } : {
-                                                backgroundColor: 'white',
+                                                backgroundColor: 'white', // Giữ nguyên màu, không đổi style disabled để giữ UI y chang
                                                 borderColor: '#E5E7EB',
                                                 borderWidth: 1,
+                                                opacity: isEditable ? 1 : 0.6 // ✅ Chỉ thêm opacity nhẹ để báo hiệu disabled
                                             }
                                         ]}
+                                        disabled={!isEditable} // ✅ Chặn bấm nếu không được sửa
                                         onPress={() => setReason(option.id)}
                                         activeOpacity={0.9}
                                     >
@@ -161,7 +217,8 @@ const SendFeedbackView = () => {
                                 onChangeText={(val) => handleChange('title', val)}
                                 placeholder="Briefly summarize your feedback..."
                                 icon="text-outline"
-                                error={errors.title} // Truyền lỗi vào đây
+                                error={errors.title}
+                                editable={isEditable} // ✅ Chặn nhập liệu nếu không được sửa
                             />
                         </View>
 
@@ -177,19 +234,22 @@ const SendFeedbackView = () => {
                                 multiline={true}
                                 numberOfLines={6}
                                 style={{ maxHeight: 150 }}
-                                error={errors.content} // Truyền lỗi vào đây
+                                error={errors.content}
+                                editable={isEditable} // ✅ Chặn nhập liệu nếu không được sửa
                             />
                         </View>
 
                         {/* --- 4. Send Button --- */}
                         <AppButton
-                            title="Send Feedback"
+                            // ✅ Đổi text nút dựa trên chế độ (Send / Update)
+                            title={!isEditable ? "Read Only" : (isEditMode ? "Update Feedback" : "Send Feedback")}
                             onPress={handleSend}
                             isLoading={isSending}
-                            disabled={isSending}
+                            // ✅ Disable nút nếu đang gửi hoặc không được phép sửa
+                            disabled={isSending || !isEditable}
                             iconRight={true}
                             variant="primary"
-                            icon="send"
+                            icon={isEditMode ? "save-outline" : "send"} // ✅ Đổi icon tương ứng
                             style={{ marginTop: theme.spacing.md, marginBottom: theme.spacing.lg }}
                         />
 
@@ -204,10 +264,22 @@ const SendFeedbackView = () => {
                     </ScrollView>
                 </TouchableWithoutFeedback>
             </KeyboardAvoidingView>
+
+            <AppDialog
+                visible={dialogConfig.visible}
+                type={dialogConfig.type}
+                title={dialogConfig.title}
+                message={dialogConfig.message}
+                confirmText={dialogConfig.confirmText}
+                isDestructive={dialogConfig.isDestructive}
+                onConfirm={dialogConfig.onConfirm}
+                onClose={() => setDialogConfig(prev => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 };
 
+// ... Styles giữ nguyên 100% như cũ ...
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -251,4 +323,4 @@ const styles = StyleSheet.create({
     }
 });
 
-export default SendFeedbackView;
+export default FeedbackFormView;
