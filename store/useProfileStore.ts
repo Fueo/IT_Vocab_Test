@@ -1,14 +1,15 @@
 // src/store/useProfileStore.ts
 import { create } from "zustand";
-import type { NextRankInfo, ProfileUser, RankInfo } from "../api/profile";
+import type { CurrentRankInfo, NextRankInfo, ProfileUser } from "../api/profile";
 
 type PatchFinishPayload = {
-  currentXP: number; // ✅ XP trong rank hiện tại
+  currentXP: number;
   currentStreak: number;
   longestStreak: number;
   lastStudyDate: string | null;
-  currentRank?: RankInfo | null;
-  nextRank?: NextRankInfo | null; // ✅ neededEXP = ngưỡng để lên rank tiếp theo
+
+  currentRank?: CurrentRankInfo | null;
+  nextRank?: NextRankInfo | null;
 };
 
 type ProfileState = {
@@ -26,40 +27,37 @@ type ProfileState = {
   clear: () => void;
 };
 
-// ✅ helper normalize incremental rank payload
-function normalizeProfileLike(
-  incoming: ProfileUser,
-  prev?: ProfileUser | null
-): ProfileUser {
+// ✅ helper normalize payload theo BE mới
+function normalizeProfileLike(incoming: ProfileUser, prev?: ProfileUser | null): ProfileUser {
   const currentXP = Math.max(0, Number((incoming as any).currentXP ?? 0));
 
-  // merge rank: nếu incoming không có currentRank/nextRank thì giữ của prev
+  // currentRank: nếu incoming không có (undefined) thì giữ prev
   const currentRank =
-    (incoming as any).currentRank !== undefined
-      ? (incoming as any).currentRank
-      : prev?.currentRank;
+    (incoming as any).currentRank !== undefined ? (incoming as any).currentRank : prev?.currentRank;
 
+  // nextRank: nếu incoming không có (undefined) thì giữ prev
   const rawNextRank =
-    (incoming as any).nextRank !== undefined
-      ? (incoming as any).nextRank
-      : prev?.nextRank;
+    (incoming as any).nextRank !== undefined ? (incoming as any).nextRank : prev?.nextRank;
 
   const nextRank: NextRankInfo | null | undefined =
     rawNextRank == null
       ? rawNextRank
       : {
-          ...(rawNextRank as any),
-          neededEXP: Math.max(0, Number((rawNextRank as any).neededEXP ?? 0)),
-          remainingEXP: Math.max(
-            0,
-            Number((rawNextRank as any).neededEXP ?? 0) - currentXP
-          ),
+          neededXP: Math.max(0, Number((rawNextRank as any).neededXP ?? 0)),
+          remainingXP: Math.max(0, Number((rawNextRank as any).remainingXP ?? 0)),
         };
+
+  // ✅ normalize unclaimedRewardsCount
+  const unclaimedRewardsCount =
+    (incoming as any).unclaimedRewardsCount !== undefined
+      ? Math.max(0, Number((incoming as any).unclaimedRewardsCount ?? 0))
+      : (prev as any)?.unclaimedRewardsCount ?? 0;
 
   return {
     ...prev,
     ...incoming,
     currentXP,
+    unclaimedRewardsCount,
     ...(currentRank !== undefined ? { currentRank } : {}),
     ...(nextRank !== undefined ? { nextRank } : {}),
   } as ProfileUser;
@@ -70,7 +68,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
   isLoading: false,
   error: null,
 
-  // ✅ setProfile: normalize + merge rank (tránh bị fetchProfile ghi đè thành 100/undefined)
+  // ✅ setProfile: normalize + merge để tránh bị ghi đè sai
   setProfile: (profile) =>
     set((state) => {
       if (!profile) return { profile: null };
@@ -80,7 +78,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
 
-  // ✅ patchProfile: cũng normalize nếu partial có đụng currentXP/nextRank
+  // ✅ patchProfile: merge rồi normalize (giữ nextRank/currentRank nếu partial không có)
   patchProfile: (partial) =>
     set((state) => {
       if (!state.profile) return state;
@@ -89,7 +87,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
       return { ...state, profile: normalizeProfileLike(merged, state.profile) };
     }),
 
-  // ✅ patchFromFinish: giữ nguyên (đã đúng)
+  // ✅ patchFromFinish: nhận rank payload mới (neededXP/remainingXP)
   patchFromFinish: (p) =>
     set((state) => {
       if (!state.profile) return state;
@@ -101,12 +99,18 @@ export const useProfileStore = create<ProfileState>((set) => ({
           ? undefined
           : p.nextRank
           ? {
-              ...p.nextRank,
-              neededEXP: Math.max(0, Number(p.nextRank.neededEXP ?? 0)),
-              remainingEXP: Math.max(
-                0,
-                Number(p.nextRank.neededEXP ?? 0) - currentXP
-              ),
+              neededXP: Math.max(0, Number(p.nextRank.neededXP ?? 0)),
+              remainingXP: Math.max(0, Number(p.nextRank.remainingXP ?? 0)),
+            }
+          : null;
+
+      const currentRank =
+        p.currentRank === undefined
+          ? undefined
+          : p.currentRank
+          ? {
+              rankLevel: Number(p.currentRank.rankLevel ?? 0),
+              rankName: String(p.currentRank.rankName ?? ""),
             }
           : null;
 
@@ -115,10 +119,10 @@ export const useProfileStore = create<ProfileState>((set) => ({
         profile: {
           ...state.profile,
           currentXP,
-          currentStreak: Number(p.currentStreak ?? 0),
-          longestStreak: Number(p.longestStreak ?? 0),
+          currentStreak: Math.max(0, Number(p.currentStreak ?? 0)),
+          longestStreak: Math.max(0, Number(p.longestStreak ?? 0)),
           lastStudyDate: p.lastStudyDate ?? null,
-          ...(p.currentRank !== undefined ? { currentRank: p.currentRank } : {}),
+          ...(currentRank !== undefined ? { currentRank } : {}),
           ...(nextRank !== undefined ? { nextRank } : {}),
         },
       };

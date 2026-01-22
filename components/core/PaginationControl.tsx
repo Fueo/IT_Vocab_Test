@@ -17,8 +17,6 @@ const PaginationControl: React.FC<PaginationControlProps> = ({
     onPageChange,
     isLoading = false,
 }) => {
-    // Nếu chỉ có 1 trang hoặc không có dữ liệu thì ẩn luôn cho gọn
-    if (totalPages <= 1) return null;
 
     const handlePrev = () => {
         if (currentPage > 1 && !isLoading) {

@@ -18,6 +18,12 @@ export async function fetchProfile(opts?: { silent?: boolean }) {
           ...res.user,
           ...(res.rank?.currentRank !== undefined ? { currentRank: res.rank.currentRank } : {}),
           ...(res.rank?.nextRank !== undefined ? { nextRank: res.rank.nextRank } : {}),
+
+          // ✅ NEW: ensure number + default
+          unclaimedRewardsCount: Math.max(
+            0,
+            Number(res.user?.unclaimedRewardsCount ?? 0)
+          ),
         }
       : null;
 

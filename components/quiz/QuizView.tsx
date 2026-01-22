@@ -198,12 +198,19 @@ const onRefresh = async () => {
             <HomeHeader
               title={`Hi, ${userName}!`}
               subtitle="Keep up the great work!"
-              rightComponent={<HomeStreakBadge streakDays={streakDays} />}
-              bottomContent={<HomeLevelCard
-  currentXP={profile?.currentXP ?? 0}
-  currentRank={profile?.currentRank ?? null}
-  nextRank={profile?.nextRank ?? null}
-/>}
+              rightComponent={
+                <HomeStreakBadge
+                  streakDays={streakDays}
+                  unclaimed={profile?.unclaimedRewardsCount ?? 0}
+                />
+              }
+              bottomContent={
+                <HomeLevelCard
+                  currentXP={profile?.currentXP ?? 0}
+                  currentRank={profile?.currentRank ?? null}
+                  nextRank={profile?.nextRank ?? null}
+                />
+              }
               height={240}
               containerStyle={styles.headerContainer}
             />

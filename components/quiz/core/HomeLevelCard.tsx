@@ -3,46 +3,69 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, StyleSheet, View } from "react-native";
 
-import type { NextRankInfo, RankInfo } from "../../../api/profile";
+import type { CurrentRankInfo, NextRankInfo } from "../../../api/profile";
 import theme from "../../../theme";
 import { AppText } from "../../core";
 
 type HomeLevelCardProps = {
-  currentXP: number;             // ✅ XP trong rank hiện tại
-  currentRank: RankInfo | null;
-  nextRank: NextRankInfo | null; // ✅ ngưỡng XP để lên rank tiếp theo (neededEXP)
+  currentXP: number; // ✅ XP trong rank hiện tại
+  currentRank: CurrentRankInfo | null; // ✅ BE mới: {rankLevel, rankName}
+  nextRank: NextRankInfo | null; // ✅ BE mới: {neededXP, remainingXP}
 };
 
+const clamp = (n: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, n));
 
-const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+function pickNeededXP(nextRank: any): number {
+  // ✅ ưu tiên key mới
+  const v = nextRank?.neededXP ?? nextRank?.neededEXP;
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
 
-const HomeLevelCard: React.FC<HomeLevelCardProps> = ({ currentXP, currentRank, nextRank }) => {
-const computed = useMemo(() => {
-  const rankName = currentRank?.rankName ?? `Rank ${currentRank?.rankLevel ?? 1}`;
+function pickRemainingXP(nextRank: any, neededXP: number, currentXP: number): number {
+  const v = nextRank?.remainingXP ?? nextRank?.remainingEXP;
+  const n = Number(v);
+  if (Number.isFinite(n)) return Math.max(0, n);
+  return Math.max(0, neededXP - currentXP);
+}
 
-  // ✅ ngưỡng để lên rank tiếp theo
-  const targetXP = nextRank?.neededEXP ? Number(nextRank.neededEXP) : 0;
+const HomeLevelCard: React.FC<HomeLevelCardProps> = ({
+  currentXP,
+  currentRank,
+  nextRank,
+}) => {
+  const computed = useMemo(() => {
+    const rankName =
+      currentRank?.rankName ??
+      `Rank ${currentRank?.rankLevel ?? 1}`;
 
-  const safeCurrent = Math.max(0, Number(currentXP || 0));
+    const safeCurrent = Math.max(0, Number(currentXP || 0));
 
-  const pct = targetXP > 0 ? (safeCurrent / targetXP) * 100 : 100; // nếu max rank -> full
+    // ✅ neededXP theo BE mới (fallback neededEXP nếu còn alias)
+    const neededXP = pickNeededXP(nextRank);
 
-  const remainingEXP =
-    nextRank?.remainingEXP != null
-      ? Math.max(0, Number(nextRank.remainingEXP))
-      : Math.max(0, targetXP - safeCurrent);
+    // ✅ isMax: không có nextRank hoặc neededXP <= 0
+    const isMax = !nextRank || neededXP <= 0;
 
-  return {
-    rankName,
-    currentXP: safeCurrent,
-    targetXP,
-    progressPct: clamp(pct, 0, 100),
-    remainingEXP,
-    isMax: !nextRank || targetXP <= 0,
-  };
-}, [currentXP, currentRank, nextRank]);
+    const pct =
+      !isMax && neededXP > 0 ? (safeCurrent / neededXP) * 100 : 100;
 
-  // ===== Animated progress (mượt, không nhảy cái "rụp") =====
+    const remainingXP = isMax
+      ? 0
+      : pickRemainingXP(nextRank, neededXP, safeCurrent);
+
+    return {
+      rankName,
+      currentXP: safeCurrent,
+      targetXP: neededXP,
+      progressPct: clamp(pct, 0, 100),
+      remainingXP,
+      isMax,
+    };
+  }, [currentXP, currentRank, nextRank]);
+
+  // ===== Animated progress =====
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -94,7 +117,7 @@ const computed = useMemo(() => {
           ) : (
             <>
               <AppText size="lg" color={theme.colors.primary} weight="bold">
-                +{computed.remainingEXP}
+                +{computed.remainingXP}
               </AppText>
               <AppText size="xs" color={theme.colors.text.secondary}>
                 to level up
@@ -105,7 +128,9 @@ const computed = useMemo(() => {
       </View>
 
       <View style={styles.progressBarBg}>
-        <Animated.View style={[styles.progressBarFill, { width: progressWidth }]} />
+        <Animated.View
+          style={[styles.progressBarFill, { width: progressWidth }]}
+        />
       </View>
     </View>
   );

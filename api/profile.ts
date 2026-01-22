@@ -3,30 +3,24 @@ import { guestStore } from "@/storage/guest";
 import { tokenStore } from "@/storage/token";
 import { api } from "./client";
 
-// ===== Types theo backend profile.controller.js =====
 const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
+// ===== Types theo backend getProfile response mới =====
 
-export type RankInfo = {
-  rankId: string;
+export type CurrentRankInfo = {
   rankLevel: number;
   rankName: string;
-  neededEXP: number;
 };
 
-export type NextRankInfo = RankInfo & {
-  remainingEXP: number;
+export type NextRankInfo = {
+  neededXP: number;
+  remainingXP: number;
 };
 
-export type SkinInfo = {
-  inventoryId: string;
-  itemId: string;
+export type EquippedSkinInfo = {
+  slotType: string; // "SKIN" | "FRAME" | ... (tuỳ BE)
   itemName: string;
-  itemImageURL: string;
-  quantity: number;
-  activatedAt: string | null;
-  expiredAt: string | null;
-  isActive: boolean;
+  itemImageURL: string | null;
 };
 
 export type ProfileStats = {
@@ -41,23 +35,20 @@ export type ProfileUser = {
   avatarURL: string | null;
   phone: string | null;
 
-  // streak/xp
   currentXP: number;
   currentStreak: number;
   longestStreak: number;
   lastStudyDate: string | null;
 
-  // rank
-  currentRank: RankInfo | null;
+  currentRank: CurrentRankInfo | null;
   nextRank: NextRankInfo | null;
 
-  // skin
-  skins: SkinInfo[];
-  activeSkin: SkinInfo | null;
+  equippedSkin: EquippedSkinInfo | null;
 
-  // ✅ backend đang trả về luôn (không optional)
   stats: ProfileStats;
   memberSince: string | null;
+
+  unclaimedRewardsCount: number; // BE trả về number
 };
 
 export type GetProfileRes = {
@@ -109,50 +100,46 @@ export const profileApi = {
   },
 
   // PUT /profile/avatar (JWT, multipart/form-data)
-// PUT /profile/avatar
-  async updateAvatar(file: { uri: string; name: string; type: string }) {
-    
-    // 1️⃣ MẸO: Gọi "mồi" một request nhẹ bằng Axios trước
-    // Mục đích: Để interceptor của Axios kiểm tra xem token còn hạn không.
-    // Nếu hết hạn, nó tự refresh và lưu token mới vào store.
+  async updateAvatar(file: { uri: string; name?: string; type?: string }): Promise<UpdateAvatarRes> {
+    // fallback name/type nếu caller không truyền
+    const meta = file.type && file.name ? { type: file.type, name: file.name } : guessMime(file.uri);
+
+    // 1️⃣ "mồi" 1 request nhẹ để interceptor refresh token (nếu có)
     try {
-       // Gọi getProfile hoặc một api nhẹ bất kỳ. 
-       // Ta không cần data trả về, chỉ cần nó không lỗi 401.
-       await api.get("/profile"); 
+      await api.get("/profile");
     } catch (err) {
-       // Nếu Axios đã retry refresh mà vẫn lỗi -> Nghĩa là hết hạn hẳn -> Throw luôn
-       throw err; 
+      throw err;
     }
 
-    // 2️⃣ Lúc này đảm bảo Token trong store là hàng xịn
+    // 2️⃣ token đã được refresh (nếu cần)
     const token = await tokenStore.getAccessToken();
     const guestKey = await guestStore.get();
 
-    // 3️⃣ Chuẩn bị FormData
+    // 3️⃣ FormData
     const form = new FormData();
     form.append("file", {
       uri: file.uri,
-      type: file.type,
-      name: file.name,
+      type: meta.type,
+      name: meta.name,
     } as any);
 
-    // 4️⃣ Gọi Fetch (chỉ chạy 1 lần, không cần lo refresh nữa)
+    // 4️⃣ fetch upload
     const res = await fetch(`${baseURL}/profile/avatar`, {
       method: "PUT",
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(guestKey ? { "x-guest-key": guestKey } : {}),
-        // Để fetch tự set boundary, KHÔNG set Content-Type thủ công
+        // KHÔNG set Content-Type để fetch tự set boundary
       },
       body: form as any,
     });
 
-    const data = await res.json().catch(() => ({}));
+    const data = (await res.json().catch(() => ({}))) as any;
 
     if (!res.ok) {
       throw new Error(data?.message || `Upload failed (${res.status})`);
     }
-    
-    return data;
-  }
+
+    return data as UpdateAvatarRes;
+  },
 };

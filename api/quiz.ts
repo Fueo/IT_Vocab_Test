@@ -201,28 +201,80 @@ export type UpdateAnswerRes = {
 // Finish (UPDATED to match new BE response)
 // =======================
 
+export type XpMultiplierSource = {
+  itemId: string;
+  itemName: string;
+  itemImageURL: string | null;
+  effectValue: number | null;
+};
+
+export type XpMeta = {
+  baseXP: number;        // XP trước khi nhân
+  multiplier: number;    // hệ số (1,2,3,...)
+  applied: boolean;      // FE check để show "x2"
+  source: XpMultiplierSource | null;
+};
+
+export type NewReward =
+  | {
+      type: "RANK";
+      rankName: string;
+      rankLevel: number;
+      inboxId: string;
+    }
+  | {
+      type: "STREAK";
+      name: string;
+      dayNumber: number;
+      inboxId: string;
+    };
+
+export type RankProgress = {
+  startEXP: number;
+  endEXP: number;
+  current: number;
+  total: number;
+  percent: number;
+};
+
 export type FinishAttemptRes = {
-  message: string;
   attempt: {
     attemptId: string;
     totalQuestions: number;
     correctAnswers: number;
     earnedXP: number;
     status: AttemptStatus;
-    finishedAt?: string | null;
-    mode?: QuizMode;
   };
-  user: null | {
-    userId: string;
+
+  xpMeta: XpMeta;
+
+  user?: {
     currentXP: number;
     currentStreak: number;
     longestStreak: number;
     lastStudyDate: string | null;
   };
-  rank: null | {
-    currentRank: RankInfo | null;
-    nextRank: NextRankInfo | null;
+
+  rank?: {
+    currentRank: {
+      rankId: string;
+      rankLevel: number;
+      rankName: string;
+      neededXP: number; // ✅ BE trả neededXP (không phải neededEXP)
+    } | null;
+    nextRank:
+      | {
+          rankId: string;
+          rankLevel: number;
+          rankName: string;
+          neededXP: number; // ✅ BE trả neededXP
+        }
+      | null;
   };
+
+  rankProgress?: RankProgress;
+
+  newRewards: NewReward[];
 };
 
 // =======================

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Easing, ScrollView, StyleSheet, View } from "react-native";
 
 import theme from "../../theme";
-import { AppBanner, AppButton } from "../core";
+import { AppBanner, AppButton, AppText } from "../core";
 import AppDialog, { DialogType } from "../core/AppDialog";
 import ResultHeader from "./core/QuizResultHeader";
 import StatCard from "./core/StatCard";
@@ -24,6 +24,23 @@ type DialogState = {
   message?: string;
   closeText?: string;
 };
+
+type XpMeta = {
+  baseXP: number;
+  multiplier: number;
+  applied: boolean;
+  source?: {
+    itemId: string;
+    itemName: string;
+    itemImageURL?: string | null;
+    effectValue: number;
+  } | null;
+};
+
+type NewReward =
+  | { type: "RANK"; rankName: string; rankLevel: number; inboxId: string }
+  | { type: "STREAK"; name: string; dayNumber: number; inboxId: string }
+  | any;
 
 export default function QuizResultView() {
   const params = useLocalSearchParams();
@@ -46,6 +63,10 @@ export default function QuizResultView() {
   const [earnedDisplay, setEarnedDisplay] = useState(0);
   const earnedTargetRef = useRef(0);
 
+  // ===== NEW: finish meta states =====
+  const [xpMeta, setXpMeta] = useState<XpMeta | null>(null);
+  const [newRewards, setNewRewards] = useState<NewReward[]>([]);
+
   useEffect(() => {
     const id = earnedAnim.addListener(({ value }) => {
       setEarnedDisplay(Math.max(0, Math.floor(value)));
@@ -60,7 +81,6 @@ export default function QuizResultView() {
     const delta = Math.abs(to - from);
     const duration = Math.max(450, Math.min(1400, delta * 18));
 
-    // reset về 0 rồi đếm lên (đúng ý bạn)
     earnedAnim.setValue(0);
 
     Animated.timing(earnedAnim, {
@@ -89,23 +109,41 @@ export default function QuizResultView() {
     const run = async () => {
       setFinishing(true);
       try {
-        const res = await quizApi.finish(attemptId);
+        const res: any = await quizApi.finish(attemptId);
 
-        setCorrectCount(res.attempt?.correctAnswers ?? 0);
-        setTotalCount(res.attempt?.totalQuestions ?? 1);
+        const c = Number(res?.attempt?.correctAnswers ?? 0);
+        const t = Math.max(1, Number(res?.attempt?.totalQuestions ?? 1));
 
-        const earned = res.attempt?.earnedXP ?? 0;
+        setCorrectCount(c);
+        setTotalCount(t);
+
+        const earned = Math.max(0, Number(res?.attempt?.earnedXP ?? 0));
         animateEarned(earned);
 
-        if (res.user) {
-  patchFromFinish({
-    currentXP: res.user.currentXP,
-    currentStreak: res.user.currentStreak,
-    longestStreak: res.user.longestStreak,
-    lastStudyDate: res.user.lastStudyDate,
-    currentRank: res.rank?.currentRank ?? null,
-    nextRank: res.rank?.nextRank ?? null,
-  });
+        // ✅ store meta
+        setXpMeta(res?.xpMeta ?? null);
+        setNewRewards(Array.isArray(res?.newRewards) ? res.newRewards : []);
+
+        // ✅ patch profile store theo BE mới (rank chỉ rankLevel/rankName, nextRank neededXP/remainingXP)
+        if (res?.user) {
+          patchFromFinish({
+            currentXP: Number(res.user.currentXP ?? 0),
+            currentStreak: Number(res.user.currentStreak ?? 0),
+            longestStreak: Number(res.user.longestStreak ?? 0),
+            lastStudyDate: res.user.lastStudyDate ?? null,
+            currentRank: res?.rank?.currentRank
+              ? {
+                  rankLevel: Number(res.rank.currentRank.rankLevel ?? 0),
+                  rankName: String(res.rank.currentRank.rankName ?? ""),
+                }
+              : null,
+            nextRank: res?.rank?.nextRank
+              ? {
+                  neededXP: Number(res.rank.nextRank.neededXP ?? 0),
+                  remainingXP: Number(res.rank.nextRank.remainingXP ?? 0),
+                }
+              : null,
+          });
         }
       } catch (e: any) {
         const msg = e?.response?.data?.message || e?.message || "Không thể finish quiz.";
@@ -131,9 +169,36 @@ export default function QuizResultView() {
   const isSuccess = accuracy >= 50;
   const title = isSuccess ? "Excellent Job!" : "Keep Practicing!";
   const subtitle = isSuccess ? `${courseTitle} completed successfully` : `${courseTitle} completed`;
-  const message = isSuccess
-    ? "You're doing great! Keep pushing your limits."
-    : "Don't give up! Every attempt makes you better.";
+  const message = isSuccess ? "You're doing great! Keep pushing your limits." : "Don't give up! Every attempt makes you better.";
+
+  // ✅ derived flags
+  const isFullCombo = totalCount > 0 && correctCount === totalCount;
+
+  const rewardsArr = Array.isArray(newRewards) ? newRewards : [];
+  const hasRewards = rewardsArr.length > 0;
+
+  const xpMultiplier = Math.max(1, Number(xpMeta?.multiplier ?? 1));
+  const xpBoostApplied = !!xpMeta?.applied && xpMultiplier > 1;
+
+  const rewardSummaryText = useMemo(() => {
+    if (!hasRewards) return "";
+
+    const rankCount = rewardsArr.filter((x) => x?.type === "RANK").length;
+    const streakCount = rewardsArr.filter((x) => x?.type === "STREAK").length;
+
+    const parts: string[] = [];
+    if (rankCount) parts.push(`${rankCount} Rank`);
+    if (streakCount) parts.push(`${streakCount} Streak`);
+    if (!parts.length) parts.push(`${rewardsArr.length} Reward`);
+
+    return parts.join(" • ");
+  }, [hasRewards, rewardsArr]);
+
+  const xpBoostText = useMemo(() => {
+    if (!xpBoostApplied) return "";
+    const itemName = xpMeta?.source?.itemName;
+    return itemName ? `XP Boost đang active: x${xpMultiplier} (${itemName})` : `XP Boost đang active: x${xpMultiplier}`;
+  }, [xpBoostApplied, xpMultiplier, xpMeta]);
 
   return (
     <>
@@ -141,17 +206,19 @@ export default function QuizResultView() {
         <ResultHeader score={correctCount} total={totalCount} title={title} subtitle={subtitle} iconSource={null} />
 
         {attemptId ? (
-          <View style={styles.finishRow}>
-            {finishing ? <ActivityIndicator size="small" color={theme.colors.primary} /> : null}
-          </View>
+          <View style={styles.finishRow}>{finishing ? <ActivityIndicator size="small" color={theme.colors.primary} /> : null}</View>
         ) : null}
 
         <View style={styles.statsContainer}>
           <StatCard label="Accuracy" value={`${accuracy}%`} icon="radio-button-on" iconColor={theme.colors.secondary} />
-          <StatCard label="Correct" value={`${correctCount}/${totalCount}`} icon="trophy-outline" iconColor={theme.colors.success} />
+          <StatCard
+            label="Correct"
+            value={`${correctCount}/${totalCount}`}
+            icon="trophy-outline"
+            iconColor={theme.colors.success}
+          />
         </View>
 
-        {/* XP Earned animated */}
         <View style={styles.statsContainer}>
           <StatCard
             label="XP Earned"
@@ -161,12 +228,47 @@ export default function QuizResultView() {
           />
         </View>
 
+        {/* ✅ Full combo */}
+        {isFullCombo ? (
+          <AppBanner
+            message={`Full Combo! Bạn đã trả lời đúng ${correctCount}/${totalCount}. Bonus +50 XP đã được tính.`}
+            variant="success"
+            icon="medal"
+            containerStyle={styles.bannerMargin}
+          />
+        ) : null}
+
+        {/* ✅ XP boost */}
+        {xpBoostApplied ? (
+          <AppBanner message={xpBoostText} variant="info" icon="flash" containerStyle={styles.bannerMarginSmall} />
+        ) : null}
+
+        {/* ✅ Rewards */}
+        {hasRewards ? (
+          <AppBanner
+            message={`Bạn nhận được phần thưởng: ${rewardSummaryText}`}
+            variant="success"
+            icon="gift"
+            containerStyle={styles.bannerMarginSmall}
+          />
+        ) : null}
+
         <AppBanner
           message={message}
           variant={isSuccess ? "success" : "info"}
           icon={isSuccess ? "star" : "fitness"}
-          containerStyle={styles.bannerMargin}
+          containerStyle={styles.bannerMarginSmall}
         />
+
+        {/* optional breakdown */}
+        {xpMeta ? (
+          <View style={styles.metaBox}>
+            <AppText size="xs" color={theme.colors.text.secondary}>
+              Base XP: {Math.max(0, Number(xpMeta.baseXP ?? 0))}{" "}
+              {xpBoostApplied ? `• Multiplier: x${xpMultiplier} • Applied: yes` : `• Applied: no`}
+            </AppText>
+          </View>
+        ) : null}
 
         <View style={styles.actionsContainer}>
           <AppButton
@@ -175,7 +277,14 @@ export default function QuizResultView() {
             onPress={() =>
               router.push({
                 pathname: "/game/review" as any,
-                params: { attemptId, courseTitle },
+                params: {
+                  attemptId,
+                  courseTitle,
+                  // ✅ pass meta cho review screen
+                  fullCombo: String(isFullCombo),
+                  xpMeta: JSON.stringify(xpMeta ?? null),
+                  newRewards: JSON.stringify(rewardsArr ?? []),
+                },
               })
             }
             icon="eye-outline"
@@ -217,9 +326,24 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.lg,
     gap: theme.spacing.md,
   },
+
   bannerMargin: {
     marginTop: theme.spacing.lg,
   },
+  bannerMarginSmall: {
+    marginTop: theme.spacing.md,
+  },
+
+  metaBox: {
+    marginTop: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+
   actionsContainer: {
     marginTop: theme.spacing.xxl,
   },

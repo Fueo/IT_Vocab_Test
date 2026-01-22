@@ -67,6 +67,11 @@ const ChangePasswordView = () => {
     const doRelogin = async () => {
         // 1. Xóa token cũ
         await tokenStore.clearTokens();
+
+        if (router.canDismiss()) {
+            router.dismissAll();
+        }
+
         // 2. Đá về login
         router.replace('/auth/login' as any);
     };

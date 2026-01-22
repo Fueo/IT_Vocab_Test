@@ -1,224 +1,508 @@
 // RewardsView.tsx
-import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
-import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
+import { router } from "expo-router";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-    Animated,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
-} from 'react-native';
+  ActivityIndicator,
+  Animated,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import theme from '../../theme';
-import { AppText, HomeHeader } from '../core';
+import theme from "../../theme";
+import { AppText, HomeHeader } from "../core";
 
-import RewardCard from './core/RewardCard';
-import { REWARD_SECTIONS, RewardSectionKey } from './core/rewards.data';
+import RewardCard from "./core/RewardCard";
+
+// ✅ Pagination + Empty
+import AppListEmpty from "../core/AppListEmpty";
+import PaginationControl from "../core/PaginationControl";
+
+// ✅ API
+import { rewardApi, RoadmapMilestoneDto } from "@/api/reward";
+
+// ✅ Types local (UI)
+import { Reward, RewardSectionKey, RewardState } from "./core/rewards.data";
+
+// ✅ NEW: profile store để giảm badge count
+import { useProfileStore } from "@/store/useProfileStore";
 
 const FILTERS: { key: RewardSectionKey; label: string }[] = [
-    { key: 'level', label: 'Level' },
-    { key: 'streak', label: 'Streak' },
-    { key: 'leaderboard', label: 'Leaderboard' },
+  { key: "level", label: "Level" },
+  { key: "streak", label: "Streak" },
 ];
 
-// Chỉ cho phép 2 loại quà: x2 XP và Frame (skin)
-const isAllowedReward = (reward: any) => {
-    if (reward?.type === 'frame') return true;
+const SECTION_META: Record<RewardSectionKey, { title: string; subtitle: string }> = {
+  level: {
+    title: "Level Rewards",
+    subtitle: "Unlock rewards when you reach a level milestone.",
+  },
+  streak: {
+    title: "Streak Rewards",
+    subtitle: "Keep your streak going to earn streak rewards.",
+  },
+} as any;
 
-    const title = (reward?.title ?? '').toLowerCase();
-    const desc = (reward?.description ?? '').toLowerCase();
-    return title.includes('xp') || desc.includes('xp');
+function mapStateToRewardState(state: "LOCKED" | "CLAIMABLE" | "CLAIMED"): RewardState {
+  if (state === "CLAIMABLE") return "claimable";
+  if (state === "CLAIMED") return "claimed";
+  return "locked";
+}
+
+function isFrameItem(it: any) {
+  const t = String(it?.itemType || "").toLowerCase();
+  return t.includes("skin");
+}
+
+function pickPrimaryItem(items?: any[]) {
+  const arr = Array.isArray(items) ? items : [];
+  if (arr.length === 0) return { primary: null, restCount: 0, reordered: [] as any[] };
+
+  const frame = arr.find(isFrameItem);
+  const primary = frame || arr[0];
+
+  const reordered = [primary, ...arr.filter((x) => x !== primary)];
+  const restCount = Math.max(0, reordered.length - 1);
+
+  return { primary, restCount, reordered };
+}
+
+function pickTitleFromItems(items?: any[]) {
+  const { primary, restCount } = pickPrimaryItem(items);
+  if (!primary?.itemName) return null;
+  return restCount > 0 ? `${primary.itemName} + ${restCount} Item khác` : primary.itemName;
+}
+
+function mapMilestoneToReward(m: RoadmapMilestoneDto): Reward {
+  const rawItems = m.rewards ?? [];
+  const { reordered } = pickPrimaryItem(rawItems);
+
+  const titleFromItem = pickTitleFromItems(rawItems);
+
+  const common = {
+    id: m._id,
+    state: mapStateToRewardState(m.state),
+    claimInboxId: m.claim?.inboxId ?? null,
+    items: reordered,
+  };
+
+  if (m.type === "RANK") {
+    return {
+      ...common,
+      title: titleFromItem || m.name,
+      description: `Reach Level ${m.level} to unlock this reward.`,
+      requirementText: `Reach Level ${m.level}`,
+      type: "consumable",
+      icon: "trophy-outline",
+    };
+  }
+
+  return {
+    ...common,
+    title: titleFromItem || m.title,
+    description: `Maintain ${m.dayNumber}-day streak to unlock this reward.`,
+    requirementText: `Maintain ${m.dayNumber}-day streak`,
+    type: "badge",
+    icon: "flame-outline",
+  };
+}
+
+type RoadmapPagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 };
 
+// ✅ cache theo type để quay lại tab không gọi API nữa
+type CacheEntry = {
+  milestones: RoadmapMilestoneDto[];
+  pagination: RoadmapPagination;
+  page: number;
+};
+type CacheMap = Record<"RANK" | "STREAK", CacheEntry | null>;
+
 const RewardsView = () => {
-    const [activeFilter, setActiveFilter] = useState<RewardSectionKey>('level');
+  const [activeFilter, setActiveFilter] = useState<RewardSectionKey>("level");
 
-    // ✅ tương lai: thay bằng progress từ API
-    const mockProgress = {
-        level: 12,
-        streak: 9,
-        leaderboardRank: 8, // top 10
-    };
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-    const statusBarHeight = Constants.statusBarHeight;
+  const [milestones, setMilestones] = useState<RoadmapMilestoneDto[]>([]);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-    // ---- Back button scale animation ----
-    const backScale = useMemo(() => new Animated.Value(1), []);
-    const animateBack = (to: number) => {
-        Animated.spring(backScale, {
-            toValue: to,
-            useNativeDriver: true,
-            speed: 30,
-            bounciness: 8,
-        }).start();
-    };
+  // ✅ Pagination state
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const [pagination, setPagination] = useState<RoadmapPagination>({
+    page: 1,
+    limit,
+    total: 0,
+    totalPages: 1,
+  });
 
-    const filteredSections = useMemo(() => {
-        return REWARD_SECTIONS.filter((s) => s.key === activeFilter);
-    }, [activeFilter]);
+  const statusBarHeight = Constants.statusBarHeight;
 
-    // ✅ Demo unlocked logic (tương lai: server trả về isUnlocked/isClaimed)
-    const isUnlocked = (req: string) => {
-        if (req.includes('Level 5')) return mockProgress.level >= 5;
-        if (req.includes('Level 10')) return mockProgress.level >= 10;
-        if (req.includes('Level 20')) return mockProgress.level >= 20;
+  const backScale = useMemo(() => new Animated.Value(1), []);
+  const animateBack = (to: number) => {
+    Animated.spring(backScale, {
+      toValue: to,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 8,
+    }).start();
+  };
 
-        if (req.includes('7-day')) return mockProgress.streak >= 7;
-        if (req.includes('30-day')) return mockProgress.streak >= 30;
-        if (req.includes('60-day')) return mockProgress.streak >= 60;
+  const apiType = useMemo(() => {
+    if (activeFilter === "level") return "RANK" as const;
+    return "STREAK" as const;
+  }, [activeFilter]);
 
-        if (req.includes('Top 10')) return mockProgress.leaderboardRank <= 10;
-        if (req.includes('Top 3')) return mockProgress.leaderboardRank <= 3;
-        if (req.includes('#1')) return mockProgress.leaderboardRank === 1;
+  // ✅ cache + guard
+  const cacheRef = useRef<CacheMap>({ RANK: null, STREAK: null });
+  const hasFetchedRef = useRef<{ RANK: boolean; STREAK: boolean }>({ RANK: false, STREAK: false });
 
-        return false;
-    };
+  async function fetchRoadmap(opts?: { isRefresh?: boolean; nextPage?: number }) {
+    const nextPage = opts?.nextPage ?? page;
+    const isRefresh = opts?.isRefresh ?? false;
 
-    // ✅ Đã nhận (demo: unlocked) => bấm chuyển qua Inventory
-    // Sau này đổi thành reward.isClaimed === true
-    const handleRewardPress = (reward: any) => {
-        const unlocked = isUnlocked(reward.requirementText);
-        if (unlocked) router.push('/tabs/inventory');
-    };
+    // ✅ nếu không refresh và đã fetch rồi -> không gọi nữa
+    // (nhưng: pagination/claim vẫn gọi bằng isRefresh:true hoặc nextPage thay đổi)
+    if (!isRefresh && hasFetchedRef.current[apiType]) {
+      const cached = cacheRef.current[apiType];
+      if (cached) {
+        setMilestones(cached.milestones);
+        setPagination(cached.pagination);
+        setPage(cached.page);
+      }
+      return;
+    }
 
-    const renderFilters = () => (
-        <View style={styles.filterWrap}>
-            {FILTERS.map((f) => {
-                const active = f.key === activeFilter;
-                return (
-                    <TouchableOpacity
-                        key={f.key}
-                        activeOpacity={0.85}
-                        onPress={() => setActiveFilter(f.key)}
-                        style={[styles.filterBtn, active && styles.filterBtnActive]}
-                    >
-                        <AppText
-                            size="sm"
-                            weight={active ? 'bold' : 'regular'}
-                            color={active ? theme.colors.text.primary : 'rgba(255,255,255,0.9)'}
-                        >
-                            {f.label}
-                        </AppText>
-                    </TouchableOpacity>
-                );
-            })}
-        </View>
-    );
+    try {
+      setErrorMsg(null);
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
 
-    return (
-        <View style={styles.container}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-                <HomeHeader
-                    title="Rewards"
-                    subtitle="Unlock rewards by leveling up, keeping streaks, and ranking high."
-                    rightIcon="gift-outline"
-                    height={250}
-                    bottomContent={renderFilters()}
-                    showRightIconBackground={true}
-                />
+      const data: any = await rewardApi.getRoadmap({
+        type: apiType,
+        status: "ALL",
+        page: nextPage,
+        limit,
+      });
 
-                <View style={styles.content}>
-                    {filteredSections.map((section) => {
-                        const allowedRewards = section.rewards.filter(isAllowedReward);
-                        if (allowedRewards.length === 0) return null;
+      const nextMilestones = data.milestones || [];
 
-                        return (
-                            <View key={section.key} style={{ marginBottom: theme.spacing.lg }}>
-                                <AppText
-                                    size="lg"
-                                    weight="bold"
-                                    color={theme.colors.text.primary}
-                                    style={{ marginBottom: theme.spacing.xs }}
-                                >
-                                    {section.title}
-                                </AppText>
+      let nextPagination: RoadmapPagination;
+      if (data.pagination) {
+        nextPagination = {
+          page: data.pagination.page ?? nextPage,
+          limit: data.pagination.limit ?? limit,
+          total: data.pagination.total ?? 0,
+          totalPages: data.pagination.totalPages ?? 1,
+        };
+      } else {
+        nextPagination = {
+          page: nextPage,
+          limit,
+          total: nextMilestones.length,
+          totalPages: 1,
+        };
+      }
 
-                                <AppText
-                                    size="sm"
-                                    color={theme.colors.text.secondary}
-                                    style={{ marginBottom: theme.spacing.md }}
-                                >
-                                    {section.subtitle}
-                                </AppText>
+      setMilestones(nextMilestones);
+      setPagination(nextPagination);
+      setPage(nextPage);
 
-                                {allowedRewards.map((reward) => (
-                                    <RewardCard
-                                        key={reward.id}
-                                        reward={reward}
-                                        isUnlocked={isUnlocked(reward.requirementText)}
-                                        onPress={() => handleRewardPress(reward)}
-                                    />
-                                ))}
-                            </View>
-                        );
-                    })}
-                </View>
-            </ScrollView>
+      // ✅ save cache + mark fetched
+      cacheRef.current[apiType] = {
+        milestones: nextMilestones,
+        pagination: nextPagination,
+        page: nextPage,
+      };
+      hasFetchedRef.current[apiType] = true;
+    } catch (e: any) {
+      setErrorMsg(e?.response?.data?.message || "Failed to load rewards.");
+      setMilestones([]);
+      const fallback = { page: nextPage, limit, total: 0, totalPages: 1 };
+      setPagination(fallback);
+      setPage(nextPage);
 
-            {/* 🔙 BACK BUTTON OVERLAY (có scale animation) */}
-            <Animated.View
-                style={[
-                    styles.backButtonWrap,
-                    {
-                        top: statusBarHeight + theme.spacing.sm,
-                        transform: [{ scale: backScale }],
-                    },
-                ]}
+      // ✅ vẫn cache empty để lần sau khỏi spam API nếu bạn muốn
+      cacheRef.current[apiType] = { milestones: [], pagination: fallback, page: nextPage };
+      hasFetchedRef.current[apiType] = true;
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  // ✅ chỉ gọi API lần đầu cho từng type, còn lại ưu tiên cache
+  useEffect(() => {
+    // reset UI page khi đổi filter
+    setPage(1);
+    setPagination({ page: 1, limit, total: 0, totalPages: 1 });
+
+    const cached = cacheRef.current[apiType];
+    if (cached && hasFetchedRef.current[apiType]) {
+      // ✅ có cache -> set lại ngay, KHÔNG call API
+      setMilestones(cached.milestones);
+      setPagination(cached.pagination);
+      setPage(cached.page);
+      return;
+    }
+
+    // ✅ chưa có cache -> gọi 1 lần
+    fetchRoadmap({ isRefresh: false, nextPage: 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiType]);
+
+  const rewards: Reward[] = useMemo(() => milestones.map(mapMilestoneToReward), [milestones]);
+
+  const handleClaim = async (reward: Reward) => {
+    if (reward.state !== "claimable") return;
+
+    const inboxId = reward.claimInboxId;
+    if (!inboxId) return;
+
+    try {
+      setRefreshing(true);
+
+      await rewardApi.claim(inboxId);
+
+      // ✅ giảm badge count ngay lập tức (optimistic)
+      const { profile, patchProfile } = useProfileStore.getState();
+      const prev = Math.max(0, Number(profile?.unclaimedRewardsCount ?? 0));
+      patchProfile({ unclaimedRewardsCount: Math.max(0, prev - 1) });
+
+      // ✅ claim xong refetch lại đúng trang hiện tại (có isRefresh => cho phép gọi API)
+      await fetchRoadmap({ isRefresh: true, nextPage: page });
+    } catch (e) {
+      // TODO: toast
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleCardPress = (reward: Reward) => {
+    if (reward.state !== "claimed") return;
+
+    const primaryItemId = reward.items?.[0]?.itemId;
+
+    router.replace({
+      pathname: "/tabs/inventory",
+      params: primaryItemId ? { itemId: String(primaryItemId) } : {},
+    });
+  };
+
+  const handlePageChange = (next: number) => {
+    // ✅ pagination là hành động chủ động -> call API
+    fetchRoadmap({ isRefresh: true, nextPage: next });
+  };
+
+  const onPullRefresh = async () => {
+    // ✅ pull refresh -> call API
+    setPage(1);
+    await fetchRoadmap({ isRefresh: true, nextPage: 1 });
+  };
+
+  const renderFilters = () => (
+    <View style={styles.filterWrap}>
+      {FILTERS.map((f) => {
+        const active = f.key === activeFilter;
+
+        return (
+          <TouchableOpacity
+            key={f.key}
+            activeOpacity={0.85}
+            onPress={() => setActiveFilter(f.key)}
+            style={[styles.filterBtn, active && styles.filterBtnActive]}
+          >
+            <AppText
+              size="sm"
+              weight={active ? "bold" : "regular"}
+              color={active ? theme.colors.text.primary : "rgba(255,255,255,0.9)"}
             >
-                <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => router.back()}
-                    onPressIn={() => animateBack(0.92)}
-                    onPressOut={() => animateBack(1)}
-                    style={styles.backButton}
-                >
-                    <Ionicons name="chevron-back" size={24} color="white" />
-                </TouchableOpacity>
-            </Animated.View>
+              {f.label}
+            </AppText>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  const sectionTitle = SECTION_META[activeFilter]?.title ?? "Rewards";
+  const sectionSubtitle =
+    SECTION_META[activeFilter]?.subtitle ?? "Unlock rewards by leveling up and keeping streaks.";
+
+  const showEmpty = !loading && !errorMsg && rewards.length === 0;
+
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onPullRefresh} />}
+      >
+        <HomeHeader
+          title="Rewards"
+          subtitle="Unlock rewards by leveling up, keeping streaks, and ranking high."
+          rightIcon="gift-outline"
+          height={250}
+          bottomContent={renderFilters()}
+          showRightIconBackground={true}
+        />
+
+        <View style={styles.content}>
+          <AppText
+            size="lg"
+            weight="bold"
+            color={theme.colors.text.primary}
+            style={{ marginBottom: theme.spacing.xs }}
+          >
+            {sectionTitle}
+          </AppText>
+
+          <AppText
+            size="sm"
+            color={theme.colors.text.secondary}
+            style={{ marginBottom: theme.spacing.md }}
+          >
+            {sectionSubtitle}
+          </AppText>
+
+          {loading ? (
+            <View style={{ paddingVertical: theme.spacing.lg }}>
+              <ActivityIndicator />
+            </View>
+          ) : errorMsg ? (
+            <View style={styles.errorBox}>
+              <AppText color={theme.colors.text.primary} weight="bold">
+                {errorMsg}
+              </AppText>
+
+              <TouchableOpacity
+                style={styles.retryBtn}
+                onPress={() => {
+                  // ✅ retry là hành động chủ động -> call API
+                  hasFetchedRef.current[apiType] = false; // cho phép gọi lại
+                  fetchRoadmap({ isRefresh: false, nextPage: 1 });
+                }}
+                activeOpacity={0.85}
+              >
+                <AppText weight="bold" color="white">
+                  Retry
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          ) : showEmpty ? (
+            <AppListEmpty
+              icon="gift-outline"
+              title="No rewards found"
+              description="Try another category or come back later."
+            />
+          ) : (
+            <>
+              {rewards.map((reward) => (
+                <RewardCard
+                  key={reward.id}
+                  reward={reward}
+                  onPress={handleCardPress}
+                  onClaim={handleClaim}
+                />
+              ))}
+
+              <PaginationControl
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                onPageChange={handlePageChange}
+                isLoading={loading || refreshing}
+              />
+            </>
+          )}
         </View>
-    );
+      </ScrollView>
+
+      {/* 🔙 BACK BUTTON OVERLAY */}
+      <Animated.View
+        style={[
+          styles.backButtonWrap,
+          {
+            top: statusBarHeight + theme.spacing.sm,
+            transform: [{ scale: backScale }],
+          },
+        ]}
+      >
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => router.back()}
+          onPressIn={() => animateBack(0.92)}
+          onPressOut={() => animateBack(1)}
+          style={styles.backButton}
+        >
+          <Ionicons name="chevron-back" size={24} color="white" />
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.colors.cardBackground },
-    scroll: { paddingBottom: theme.spacing.lg * 4 },
-    content: { padding: theme.spacing.md },
+  container: { flex: 1, backgroundColor: theme.colors.cardBackground },
+  scroll: { paddingBottom: theme.spacing.lg * 4 },
+  content: { padding: theme.spacing.md },
 
-    filterWrap: {
-        flexDirection: 'row',
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        borderRadius: theme.radius.xl,
-        padding: 4,
-        marginTop: theme.spacing.md,
-        width: '90%',
-        alignSelf: 'center',
-    },
-    filterBtn: {
-        flex: 1,
-        paddingVertical: 8,
-        alignItems: 'center',
-        borderRadius: theme.radius.xl,
-    },
-    filterBtnActive: {
-        backgroundColor: 'white',
-    },
+  filterWrap: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: theme.radius.xl,
+    padding: 4,
+    marginTop: theme.spacing.md,
+    width: "90%",
+    alignSelf: "center",
+  },
+  filterBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: theme.radius.xl,
+  },
+  filterBtnActive: {
+    backgroundColor: "white",
+  },
 
-    // Back button overlay
-    backButtonWrap: {
-        position: 'absolute',
-        left: theme.spacing.md,
-        zIndex: 50,
-    },
-    backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.35)',
-    },
+  errorBox: {
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+  },
+  retryBtn: {
+    marginTop: theme.spacing.sm,
+    alignSelf: "flex-start",
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.success,
+  },
+
+  backButtonWrap: {
+    position: "absolute",
+    left: theme.spacing.md,
+    zIndex: 50,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
 });
 
 export default RewardsView;
