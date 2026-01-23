@@ -1,6 +1,6 @@
 // src/screens/profile/EditProfileView.tsx
 import { Ionicons } from "@expo/vector-icons";
-import { router, useNavigation } from "expo-router"; // ✅ Thêm useNavigation
+import { router, useNavigation } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,9 +18,9 @@ import {
   AppDetailHeader,
   AppInput,
   AppText,
-  AvatarPickerSheet
+  AvatarPickerSheet,
 } from "../core";
-import AppDialog from "../core/AppDialog";
+import AppDialog, { DialogType } from "../core/AppDialog";
 import UserAvatar from "./core/UserAvatar";
 
 import { profileApi } from "../../api/profile";
@@ -46,14 +46,15 @@ const AVATAR_SIZE = 120;
 
 type DialogState = {
   visible: boolean;
-  type: "success" | "error" | "info" | "warning";
+  type: DialogType;
   title: string;
   message: string;
+  confirmText?: string;
   onCloseAction?: () => void;
 };
 
 const EditProfileView = () => {
-  const navigation = useNavigation(); // ✅ Hook để can thiệp điều hướng
+  const navigation = useNavigation();
   const profile = useProfileStore((s) => s.profile);
   const storeLoading = useProfileStore((s) => s.isLoading);
 
@@ -73,10 +74,35 @@ const EditProfileView = () => {
     type: "info",
     title: "",
     message: "",
+    confirmText: "OK",
   });
 
   // ===== Errors =====
   const [errors, setErrors] = useState({ name: "", phone: "" });
+
+  // ===== Helpers =====
+  const getErrorMessage = (e: any, fallback: string) => {
+    if (e?.userMessage) return e.userMessage;
+    const serverMsg = e?.response?.data?.message;
+    if (typeof serverMsg === "string" && serverMsg.trim()) return serverMsg;
+    if (typeof e?.message === "string" && e.message.trim()) return e.message;
+    return fallback;
+  };
+
+  const openDialog = (next: Omit<DialogState, "visible">) => {
+    setDialog({ ...next, visible: true });
+  };
+
+  const closeDialog = () => {
+    setDialog((prev) => {
+      const action = prev.onCloseAction;
+      // đóng trước
+      const nextState = { ...prev, visible: false, onCloseAction: undefined };
+      // chạy action sau khi state update (microtask)
+      if (action) Promise.resolve().then(action);
+      return nextState;
+    });
+  };
 
   // ===== Init from store =====
   useEffect(() => {
@@ -88,24 +114,26 @@ const EditProfileView = () => {
 
   // ✅ CHẶN BACK KHI ĐANG UPLOAD HOẶC SAVE
   useEffect(() => {
-    const removeListener = navigation.addListener('beforeRemove', (e) => {
-      // Nếu đang bận (upload hoặc save) thì chặn lại
+    const removeListener = navigation.addListener("beforeRemove", (e) => {
       if (isUploadingAvatar || isSaving) {
-        e.preventDefault(); // ⛔ Chặn hành động back
+        e.preventDefault();
 
-        // Hiện thông báo cảnh báo
-        setDialog({
+        // tránh set lại dialog nếu đang mở sẵn
+        setDialog((prev) => {
+          if (prev.visible && prev.type === "warning") return prev;
+          return {
             visible: true,
             type: "warning",
             title: "Please Wait",
             message: "Please wait until the process is finished.",
+            confirmText: "OK",
+          };
         });
       }
     });
 
-    return removeListener; // Cleanup listener
+    return removeListener;
   }, [navigation, isUploadingAvatar, isSaving]);
-
 
   // ===== Validation =====
   const isValidPhone = (p: string) => /^[0-9]{9,11}$/.test(p);
@@ -121,14 +149,6 @@ const EditProfileView = () => {
     if (isSaving || isUploadingAvatar) return false;
     return true;
   }, [profile, isSaving, isUploadingAvatar]);
-
-  // ===== Helper đóng dialog =====
-  const closeDialog = () => {
-    setDialog((prev) => ({ ...prev, visible: false }));
-    if (dialog.onCloseAction) {
-      dialog.onCloseAction();
-    }
-  };
 
   // ===== Save profile =====
   const handleSave = async () => {
@@ -158,21 +178,20 @@ const EditProfileView = () => {
 
       await fetchProfile({ silent: true });
 
-      setDialog({
-        visible: true,
+      openDialog({
         type: "success",
         title: "Success",
         message: "Profile updated successfully!",
+        confirmText: "OK",
         onCloseAction: () => router.back(),
       });
-
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? "Failed to update profile.";
-      setDialog({
-        visible: true,
+      const msg = getErrorMessage(e, "Failed to update profile.");
+      openDialog({
         type: "error",
         title: "Update Failed",
         message: msg,
+        confirmText: "OK",
       });
     } finally {
       setIsSaving(false);
@@ -189,34 +208,24 @@ const EditProfileView = () => {
   const handleAvatarSelected = async (asset: AvatarAsset) => {
     const payload = normalizeAvatarAsset(asset);
 
+    // optimistic UI
     setAvatarUrl(payload.uri);
     setShowAvatarPicker(false);
 
     setIsUploadingAvatar(true);
     try {
-      console.log("avatar uri =", payload);
       await profileApi.updateAvatar(payload);
       await fetchProfile({ silent: true });
-      
-      // ✅ Có thể thông báo upload thành công nếu muốn (tuỳ chọn)
-      /*
-      setDialog({
-        visible: true,
-        type: "success",
-        title: "Success",
-        message: "Avatar updated successfully!",
-      });
-      */
-
     } catch (e: any) {
-      setAvatarUrl(profile?.avatarURL ?? null); // Revert UI
-      
-      const msg = e?.response?.data?.message ?? e?.message ?? "Upload failed";
-      setDialog({
-        visible: true,
+      // revert UI
+      setAvatarUrl(profile?.avatarURL ?? null);
+
+      const msg = getErrorMessage(e, "Upload failed.");
+      openDialog({
         type: "error",
         title: "Upload Error",
         message: msg,
+        confirmText: "OK",
       });
     } finally {
       setIsUploadingAvatar(false);
@@ -231,10 +240,7 @@ const EditProfileView = () => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* AVATAR */}
           <View style={styles.avatarSection}>
             <View style={styles.avatarWrapper}>
@@ -267,11 +273,7 @@ const EditProfileView = () => {
               </TouchableOpacity>
             </View>
 
-            <AppText
-              size="sm"
-              color={theme.colors.text.secondary}
-              style={{ marginTop: 12 }}
-            >
+            <AppText size="sm" color={theme.colors.text.secondary} style={{ marginTop: 12 }}>
               Change Profile Picture
             </AppText>
           </View>
@@ -314,13 +316,15 @@ const EditProfileView = () => {
         onImageSelected={handleAvatarSelected}
       />
 
-      <AppDialog 
+      {/* ✅ AppDialog cho cả success / error / warning */}
+      <AppDialog
         visible={dialog.visible}
         type={dialog.type}
         title={dialog.title}
         message={dialog.message}
         onClose={closeDialog}
-        closeText="OK"
+        confirmText={dialog.confirmText || "OK"}
+        onlyConfirm={true}
       />
     </View>
   );

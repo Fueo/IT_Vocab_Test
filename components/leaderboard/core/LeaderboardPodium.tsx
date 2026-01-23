@@ -1,23 +1,39 @@
-import { AntDesign, Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+// src/screens/leaderboard/core/LeaderboardPodium.tsx
+import { AntDesign, Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import React from "react";
+import { Dimensions, StyleSheet, View } from "react-native";
 
-import theme from '../../../theme';
-import { AppText } from '../../core';
-import UserAvatar from '../../profile/core/UserAvatar';
-import { LeaderboardItem, RANK_COLORS, TabKey } from './leaderboard.data';
+import theme from "../../../theme";
+import { AppText } from "../../core";
+import UserAvatar from "../../profile/core/UserAvatar";
+import { LeaderboardItem, TabKey } from "./leaderboard.types";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
+
+// ✅ đưa màu/gradient vào thẳng trong file
+const RANK_COLORS = {
+    gold: { main: "#FFD700", gradient: ["#FFD200", "#F7971E"] as [string, string] },
+    silver: { main: "#C0C0C0", gradient: ["#BDC3C7", "#2C3E50"] as [string, string] },
+    bronze: { main: "#CD7F32", gradient: ["#DAA520", "#8B4513"] as [string, string] },
+};
 
 type Props = {
     topThree: LeaderboardItem[];
     selectedTab: TabKey;
 };
 
+function getInitials(name?: string | null) {
+    const n = (name ?? "").trim();
+    if (!n) return "U";
+    const parts = n.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 const LeaderboardPodium: React.FC<Props> = ({ topThree, selectedTab }) => {
     const renderItem = (item: LeaderboardItem) => {
-        let rankColor = '';
+        let rankColor = "";
         let rankSize = 0;
         let heightBlock = 0;
 
@@ -30,13 +46,16 @@ const LeaderboardPodium: React.FC<Props> = ({ topThree, selectedTab }) => {
             rankSize = 80;
             heightBlock = 100;
         } else {
-            rankColor = '#B87333';
+            rankColor = RANK_COLORS.bronze.main;
             rankSize = 80;
             heightBlock = 80;
         }
 
+        const xp = item.xp ?? 0;
+        const streak = item.streak ?? 0;
+
         const displayValue =
-            selectedTab === 'XP' ? `${item.xp.toLocaleString()} XP` : `${item.streak} Days`;
+            selectedTab === "XP" ? `${xp.toLocaleString()} XP` : `${streak} Days`;
 
         const gradient =
             item.rank === 1
@@ -45,18 +64,32 @@ const LeaderboardPodium: React.FC<Props> = ({ topThree, selectedTab }) => {
                     ? RANK_COLORS.silver.gradient
                     : RANK_COLORS.bronze.gradient;
 
+        // ✅ frame cho top3: BE trả itemImageURL (skin/frame url)
+        const frameUrl = item.itemImageURL ?? null;
+
         return (
-            <View key={item.id} style={[styles.podiumItem, { zIndex: item.rank === 1 ? 10 : 1 }]}>
+            <View
+                key={item.id}
+                style={[styles.podiumItem, { zIndex: item.rank === 1 ? 10 : 1 }]}
+            >
                 {item.rank === 1 && (
-                    <AntDesign name="crown" size={32} color={theme.colors.primary} style={styles.crownIcon} />
+                    <AntDesign
+                        name="crown"
+                        size={32}
+                        color={theme.colors.primary}
+                        style={styles.crownIcon}
+                    />
                 )}
 
                 <View style={styles.avatarWrapper}>
                     <UserAvatar
-                        initials={item.initials}
+                        initials={getInitials(item.name)}
+                        imageUrl={item.avatarURL ?? undefined} // ✅ avatar từ BE
                         size={rankSize}
-                        frameId={item.rank === 1 ? (item.equippedFrame as any) : undefined}
+                        frameImageUrl={frameUrl} // ✅ khung từ BE (remote)
+                        avatarScale={0.82}
                     />
+
                     <View style={[styles.rankBadge, { backgroundColor: rankColor }]}>
                         <AppText size="xs" weight="bold" color="white">
                             {item.rank}
@@ -68,20 +101,24 @@ const LeaderboardPodium: React.FC<Props> = ({ topThree, selectedTab }) => {
                     <AppText
                         size="sm"
                         weight="bold"
-                        style={{ textAlign: 'center' }}
+                        style={{ textAlign: "center" }}
                         numberOfLines={1}
                         color={theme.colors.text.primary}
                     >
-                        {item.name}
+                        {item.name ?? "User"}
                     </AppText>
+
                     <AppText size="xs" weight="bold" color={theme.colors.success}>
                         {displayValue}
                     </AppText>
                 </View>
 
-                <LinearGradient colors={gradient} style={[styles.podiumBlock, { height: heightBlock }]}>
+                <LinearGradient
+                    colors={gradient}
+                    style={[styles.podiumBlock, { height: heightBlock }]}
+                >
                     <Ionicons
-                        name={selectedTab === 'XP' ? 'trophy-outline' : 'flame-outline'}
+                        name={selectedTab === "XP" ? "trophy-outline" : "flame-outline"}
                         size={24}
                         color="rgba(255,255,255,0.5)"
                     />
@@ -106,52 +143,52 @@ const LeaderboardPodium: React.FC<Props> = ({ topThree, selectedTab }) => {
 
 const styles = StyleSheet.create({
     podiumContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'flex-end',
+        flexDirection: "row",
+        justifyContent: "center",
+        alignItems: "flex-end",
         marginBottom: theme.spacing.xl,
         marginTop: 30,
         paddingHorizontal: theme.spacing.md,
         zIndex: 1,
     },
     podiumItem: {
-        alignItems: 'center',
+        alignItems: "center",
         marginHorizontal: 4,
         width: width * 0.28,
-        justifyContent: 'flex-end',
+        justifyContent: "flex-end",
     },
     crownIcon: {
         marginBottom: -10,
         zIndex: 20,
     },
     avatarWrapper: {
-        position: 'relative',
+        position: "relative",
         marginBottom: theme.spacing.xs,
     },
     rankBadge: {
-        position: 'absolute',
+        position: "absolute",
         bottom: 6,
         right: 6,
         width: 24,
         height: 24,
         borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
+        justifyContent: "center",
+        alignItems: "center",
         borderWidth: 2,
-        borderColor: 'white',
+        borderColor: "white",
     },
     podiumInfo: {
-        alignItems: 'center',
+        alignItems: "center",
         marginBottom: theme.spacing.smd,
-        width: '100%',
+        width: "100%",
     },
     podiumBlock: {
-        width: '100%',
+        width: "100%",
         borderTopLeftRadius: theme.radius.lg,
         borderTopRightRadius: theme.radius.lg,
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
+        justifyContent: "center",
+        alignItems: "center",
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 2,

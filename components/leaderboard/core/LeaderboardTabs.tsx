@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import theme from '../../../theme';
 import { AppText } from '../../core';
-import { RANK_COLORS, TabKey } from './leaderboard.data';
+import { RANK_COLORS, TabKey } from './leaderboard.types';
 
 const TABS: { key: TabKey; label: string }[] = [
     { key: 'XP', label: 'XP Rank' },

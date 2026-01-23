@@ -1,14 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
   RefreshControl,
   StyleSheet,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 import theme from "../../theme";
@@ -21,13 +21,19 @@ import QuizTabs, { QuizTabKey } from "./core/QuizTabs";
 
 import { useProfileStore } from "@/store/useProfileStore";
 import { quizApi, TopicQuizItem } from "../../api/quiz";
-import { fetchProfile } from "../../store/profileActions";
 import PaginationControl from "../core/PaginationControl";
+
+// ✅ Import Component Empty và Dialog
+import AppDialog, { DialogType } from "../core/AppDialog";
+import AppListEmpty from "../core/AppListEmpty";
 
 const { width } = Dimensions.get("window");
 const PAGE_SIZE = 10;
 
-// ✅ Component Banner Random
+// ==========================================
+// HELPER COMPONENTS & FUNCTIONS
+// ==========================================
+
 const RandomBanner = ({ onPress }: { onPress: () => void }) => {
   return (
     <View style={styles.bannerContainer}>
@@ -55,15 +61,8 @@ const RandomBanner = ({ onPress }: { onPress: () => void }) => {
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.playButton}
-          onPress={onPress}
-          activeOpacity={0.9}
-        >
-          <LinearGradient
-            colors={["#FFFFFF", "#F0F0F0"]}
-            style={styles.playButtonGradient}
-          >
+        <TouchableOpacity style={styles.playButton} onPress={onPress} activeOpacity={0.9}>
+          <LinearGradient colors={["#FFFFFF", "#F0F0F0"]} style={styles.playButtonGradient}>
             <Ionicons name="play" size={28} color={theme.colors.primary} style={{ marginLeft: 4 }} />
             <AppText size="md" weight="bold" color={theme.colors.primary}>
               BẮT ĐẦU NGAY
@@ -75,17 +74,20 @@ const RandomBanner = ({ onPress }: { onPress: () => void }) => {
   );
 };
 
-// ✅ Helper lấy màu
 const getGradientByLevel = (level: number): [string, string] => {
   switch (level) {
     case 2:
-      return theme.colors.slides.step2 as [string, string]; // Màu Cam
+      return theme.colors.slides.step2 as [string, string];
     case 3:
-      return theme.colors.slides.step3 as [string, string]; // Màu Tím
+      return theme.colors.slides.step3 as [string, string];
     default:
-      return theme.colors.slides.step1 as [string, string]; // Màu Xanh
+      return theme.colors.slides.step1 as [string, string];
   }
 };
+
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
 
 const QuizView = () => {
   const [selectedTab, setSelectedTab] = useState<QuizTabKey>("TOPIC");
@@ -96,17 +98,35 @@ const QuizView = () => {
   const [topicTotalPages, setTopicTotalPages] = useState(1);
   const [topicLoading, setTopicLoading] = useState(false);
 
-  // ===== refresh =====
+  // ===== Refresh =====
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-const profile = useProfileStore((s) => s.profile);
-const isLoadingProfile = useProfileStore((s) => s.isLoading);
-const profileError = useProfileStore((s) => s.error);
+  // ===== ✅ State cho Dialog =====
+  const [dialogConfig, setDialogConfig] = useState<{
+    visible: boolean;
+    type: DialogType;
+    title: string;
+    message: string;
+  }>({
+    visible: false,
+    type: "error",
+    title: "",
+    message: "",
+  });
 
-const userName = profile?.name?.trim() || "Guest";
-const streakDays = profile?.currentStreak ?? 0;
+  // ✅ Cache flag: đã load TOPIC lần nào chưa (để đổi tab không fetch lại)
+  const hasLoadedTopicRef = useRef(false);
 
-  const fetchTopicPage = async (page: number, opts?: { refreshing?: boolean }) => {
+  const profile = useProfileStore((s) => s.profile);
+
+  const userName = profile?.name?.trim() || "Guest";
+  const streakDays = profile?.currentStreak ?? 0;
+
+  const handleCloseDialog = useCallback(() => {
+    setDialogConfig((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  const fetchTopicPage = useCallback(async (page: number, opts?: { refreshing?: boolean }) => {
     const refreshing = !!opts?.refreshing;
 
     if (!refreshing) setTopicLoading(true);
@@ -115,51 +135,69 @@ const streakDays = profile?.currentStreak ?? 0;
       setTopicItems(res.items || []);
       setTopicPage(res.page || page);
       setTopicTotalPages(res.totalPages || 1);
-    } catch (e) {
+
+      // ✅ đánh dấu đã load ít nhất 1 lần
+      hasLoadedTopicRef.current = true;
+    } catch (e: any) {
       setTopicItems([]);
       setTopicTotalPages(1);
+
+      const errorMsg = e.userMessage || "Không tải được danh sách chủ đề.";
+
+      setDialogConfig({
+        visible: true,
+        type: "error",
+        title: "Rất tiếc!",
+        message: errorMsg,
+      });
+
+      // (tuỳ chọn) cho phép quay lại tab sẽ thử load lại
+      // hasLoadedTopicRef.current = false;
     } finally {
       setTopicLoading(false);
       if (refreshing) setIsRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    fetchTopicPage(1);
   }, []);
 
+  // ✅ Cơ chế giống Dictionary:
+  // - Chỉ gọi API khi vào TOPIC lần đầu (hoặc dữ liệu đang rỗng và chưa từng load)
+  // - Đổi tab qua lại KHÔNG fetch lại
   useEffect(() => {
-    if (selectedTab === "TOPIC") {
-      setTopicPage(1);
-      fetchTopicPage(1);
-    }
-  }, [selectedTab]);
+    if (selectedTab !== "TOPIC") return;
 
-const onRefresh = async () => {
-  setIsRefreshing(true);
-  try {
-    await Promise.all([
-      fetchProfile({ silent: true }), // refresh profile
-      fetchTopicPage(1, { refreshing: true }), // refresh quiz list
-    ]);
-  } finally {
-    setIsRefreshing(false);
-  }
-};
+    // Nếu đã load rồi và đang có data => không gọi lại API
+    if (hasLoadedTopicRef.current && topicItems.length > 0) return;
+
+    // Lần đầu vào TOPIC (hoặc data rỗng) => fetch page hiện tại (mặc định 1)
+    const pageToLoad = topicPage || 1;
+    fetchTopicPage(pageToLoad);
+  }, [selectedTab, fetchTopicPage, topicItems.length, topicPage]);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchTopicPage(1, { refreshing: true });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchTopicPage]);
 
   const listData = useMemo(() => {
     if (selectedTab === "TOPIC") return topicItems;
     return [{ id: "RANDOM_BANNER_ITEM" }];
   }, [selectedTab, topicItems]);
 
-  const handlePageChange = (page: number) => {
-    if (selectedTab === "TOPIC") {
-      setTopicPage(page);
-      fetchTopicPage(page);
-    }
-  };
+  const handlePageChange = useCallback(
+    (page: number) => {
+      if (selectedTab === "TOPIC") {
+        setTopicPage(page);
+        fetchTopicPage(page);
+      }
+    },
+    [selectedTab, fetchTopicPage]
+  );
 
-  const handlePressTopic = (topicId: string, level: number, title: string) => {
+  const handlePressTopic = useCallback((topicId: string, level: number, title: string) => {
     router.push({
       pathname: `/course/[id]`,
       params: {
@@ -168,9 +206,9 @@ const onRefresh = async () => {
         fromTab: "TOPIC",
       },
     });
-  };
+  }, []);
 
-  const handlePressRandomPlay = () => {
+  const handlePressRandomPlay = useCallback(() => {
     const defaultQuestions = 10;
     router.push({
       pathname: `/course/[id]`,
@@ -181,18 +219,17 @@ const onRefresh = async () => {
         totalQuestions: String(defaultQuestions),
       },
     });
-  };
+  }, []);
 
   return (
     <View style={styles.container}>
       <FlatList
-        key={selectedTab} 
+        key={selectedTab}
         data={listData as any[]}
         keyExtractor={(item: any) =>
           selectedTab === "TOPIC" ? `${item.topicId}:${item.level}` : item.id
         }
         numColumns={selectedTab === "TOPIC" ? 2 : 1}
-        
         ListHeaderComponent={
           <>
             <HomeHeader
@@ -220,34 +257,31 @@ const onRefresh = async () => {
             </View>
           </>
         }
-        
         contentContainerStyle={styles.listContent}
-        columnWrapperStyle={selectedTab === "TOPIC" ? styles.columnWrapper : undefined} 
+        columnWrapperStyle={selectedTab === "TOPIC" ? styles.columnWrapper : undefined}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
-        
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <AppText color={theme.colors.text.secondary}>
-              {selectedTab === "TOPIC"
-                ? topicLoading ? "Loading quizzes..." : "No topic quizzes found"
-                : ""}
-            </AppText>
-          </View>
+          selectedTab === "TOPIC" ? (
+            <AppListEmpty
+              isLoading={topicLoading}
+              icon="book-outline"
+              title="No topic quizzes found"
+              description="Try pulling to refresh or come back later."
+              containerStyle={{ paddingVertical: theme.spacing.huge }}
+            />
+          ) : null
         }
-        
         renderItem={({ item }: { item: any }) => {
-          // 🎨 RENDER TOPIC CARD VỚI MÀU DYNAMIC
           if (selectedTab === "TOPIC") {
-            const dynamicColors = getGradientByLevel(item.level); // <--- LẤY MÀU Ở ĐÂY
-
+            const dynamicColors = getGradientByLevel(item.level);
             return (
               <QuizCard
                 title={item.title}
                 icon={"book-outline" as any}
                 percentage={0}
                 xp={0}
-                colors={dynamicColors} // <--- TRUYỀN MÀU VÀO CARD
+                colors={dynamicColors}
                 onPress={() => handlePressTopic(item.topicId, item.level, item.title)}
               />
             );
@@ -255,7 +289,6 @@ const onRefresh = async () => {
 
           return <RandomBanner onPress={handlePressRandomPlay} />;
         }}
-
         ListFooterComponent={
           selectedTab === "TOPIC" ? (
             <PaginationControl
@@ -267,9 +300,22 @@ const onRefresh = async () => {
           ) : null
         }
       />
+
+      <AppDialog
+        visible={dialogConfig.visible}
+        type={dialogConfig.type}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        onClose={handleCloseDialog}
+        confirmText="Đóng"
+      />
     </View>
   );
 };
+
+// ==========================================
+// STYLES
+// ==========================================
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
@@ -281,13 +327,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
-  emptyContainer: {
-    padding: theme.spacing.lg,
-    alignItems: 'center',
-    marginTop: theme.spacing.md,
-  },
-  
-  // ===== STYLES CHO RANDOM BANNER =====
+
   bannerContainer: {
     paddingHorizontal: theme.spacing.md,
     marginBottom: theme.spacing.lg,
@@ -328,7 +368,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 14,
-    borderRadius: theme.radius.circle, // Sửa thành full cho tròn đẹp
+    borderRadius: theme.radius.circle,
     gap: 8,
   },
   circleDecoration1: {

@@ -1,6 +1,8 @@
+// src/components/quiz/QuizGameView.tsx
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native"; // Dùng hook gốc để có dispatch
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -31,7 +33,7 @@ type Status = "playing" | "checked";
 
 /**
  * ✅ Không cho nhập tiếng Việt (dấu), không khoảng trắng.
- * Chỉ giữ a-z A-Z 0-9 (ASCII). (Bạn có thể mở rộng thêm '_' '-' nếu muốn)
+ * Chỉ giữ a-z A-Z 0-9 (ASCII).
  */
 function sanitizeFillInput(raw: string) {
   return String(raw || "")
@@ -53,21 +55,18 @@ function calcFillLenFromAnswerOption(question: QuestionDto | null) {
   const answerRaw = question.options?.[0]?.content ?? "";
   const answer = sanitizeFillInput(answerRaw);
 
-  // fallback nếu options rỗng
   const fallback = sanitizeFillInput(
     question.word?.term || question.word?.word || (question.word as any)?.meaning || ""
   );
 
   const len = answer.length || fallback.length || 6;
-
-  // tối thiểu 1 ô, nhưng thường bạn muốn ít nhất 4 cho đẹp UI
   return Math.max(1, len);
 }
 
 /**
  * Fill-blank input kiểu OTP (_____) giống VerifyCodeView
- * - length = đáp án (options[0].content) => dài thì tự xuống hàng (flexWrap)
- * - chỉ nhận ASCII (sanitizeFillInput)
+ * - length = đáp án (options[0].content)
+ * - chỉ nhận ASCII
  */
 const FillBlankCellsInput = ({
   value,
@@ -174,6 +173,7 @@ type DialogState = {
 
 const QuizGameView = () => {
   const params = useLocalSearchParams();
+  const navigation = useNavigation();
 
   const attemptId = asString(params.attemptId) || asString(params.id) || "";
   const initialCursor = Number(asString(params.cursor) || "0");
@@ -207,7 +207,7 @@ const QuizGameView = () => {
     new Map()
   );
 
-  // ===== abandon dialog =====
+  // ===== ABANDON & EXIT LOGIC =====
   const [abandoning, setAbandoning] = useState(false);
   const [dialog, setDialog] = useState<DialogState>({
     visible: false,
@@ -216,48 +216,95 @@ const QuizGameView = () => {
     message: "",
   });
 
-  const openDialog = (next: Omit<DialogState, "visible">) => setDialog({ ...next, visible: true });
-  const closeDialog = () => setDialog((p) => ({ ...p, visible: false, onConfirm: undefined }));
+  // ✅ Refs quan trọng để chặn/nhả điều hướng
+  const pendingActionRef = useRef<any>(null); // Lưu hành động back/home/...
+  const shouldAllowLeaveRef = useRef(false); // Cờ cho phép thoát
 
-  const handleRequestExit = () => {
-    openDialog({
-      type: "confirm",
-      title: "Thoát quiz?",
-      message: "Tiến trình hiện tại sẽ bị hủy.",
-      closeText: "Ở lại",
-      confirmText: abandoning ? "Đang hủy..." : "Thoát & Hủy",
-      isDestructive: true,
-      onConfirm: async () => {
-        if (abandoning) return;
-        setAbandoning(true);
-        try {
-          if (attemptId) await quizApi.abandon(attemptId);
-          closeDialog();
-          router.back();
-        } catch (e: any) {
-          const msg = e?.response?.data?.message || e?.message || "Không thể hủy quiz.";
-          closeDialog();
-          openDialog({
-            type: "error",
-            title: "Hủy quiz thất bại",
-            message: msg,
-            closeText: "OK",
-          });
-        } finally {
-          setAbandoning(false);
-        }
-      },
-    });
+  const openDialog = useCallback(
+    (next: Omit<DialogState, "visible">) => setDialog({ ...next, visible: true }),
+    []
+  );
+  const closeDialog = useCallback(() => setDialog((p) => ({ ...p, visible: false, onConfirm: undefined })), []);
+
+  /**
+   * Hàm xử lý khi user xác nhận "Thoát & Hủy"
+   */
+  const handleAbandonAndExit = async () => {
+    if (abandoning) return;
+    setAbandoning(true);
+
+    try {
+      if (attemptId) {
+        await quizApi.abandon(attemptId);
+      }
+
+      // ✅ Mở cổng cho phép thoát
+      shouldAllowLeaveRef.current = true;
+      closeDialog();
+
+      // ✅ Thực thi lại hành động đã bị chặn trước đó
+      if (pendingActionRef.current) {
+        navigation.dispatch(pendingActionRef.current);
+      } else {
+        router.back(); // Fallback an toàn
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "Không thể hủy quiz.";
+      closeDialog();
+      openDialog({
+        type: "error",
+        title: "Hủy quiz thất bại",
+        message: msg,
+        closeText: "Về trang chủ",
+        onConfirm: () => {
+          // Nếu lỗi quá nặng, cho phép force exit luôn
+          shouldAllowLeaveRef.current = true;
+          router.replace("/tabs/quiz");
+        },
+      });
+    } finally {
+      setAbandoning(false);
+    }
   };
+
+  // ✅ CHẶN ĐIỀU HƯỚNG MẶC ĐỊNH
+  useEffect(() => {
+    const unsub = navigation.addListener("beforeRemove", (e) => {
+      // 1. Nếu cờ cho phép đã bật, không chặn nữa -> để router xử lý (quay về màn trước)
+      if (shouldAllowLeaveRef.current) {
+        return;
+      }
+
+      // 2. Chặn điều hướng
+      e.preventDefault();
+
+      // 3. Lưu lại hành động người dùng muốn làm (Back, Replace, Home...)
+      pendingActionRef.current = e.data.action;
+
+      // 4. Nếu dialog chưa hiện thì hiện lên
+      if (!dialog.visible && !abandoning) {
+        openDialog({
+          type: "confirm",
+          title: "Thoát quiz?",
+          message: "Tiến trình hiện tại sẽ bị hủy.",
+          closeText: "Ở lại",
+          confirmText: "Thoát & Hủy",
+          isDestructive: true,
+          onConfirm: handleAbandonAndExit, // Gọi hàm xử lý trên
+        });
+      }
+    });
+
+    return unsub;
+  }, [navigation, dialog.visible, abandoning, attemptId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const termText = useMemo(() => {
     if (!question) return "";
-    return "Question"
+    return "Question";
   }, [question]);
 
   const promptText = useMemo(() => (question ? question.content : ""), [question]);
 
-  // ✅ ưu tiên hint từ backend (question.hint), fallback sang word.example/definition/meaning
   const hintText = useMemo(() => {
     if (!question) return "";
 
@@ -269,7 +316,6 @@ const QuizGameView = () => {
     return String(ex || def || "").trim();
   }, [question]);
 
-  // ✅ số ô ____ cho fill blank: dựa vào length của options[0].content
   const fillLen = useMemo(() => calcFillLenFromAnswerOption(question), [question]);
 
   const fetchQuestion = async (atId: string, c: number) => {
@@ -292,9 +338,6 @@ const QuizGameView = () => {
       setFillText("");
       setStatus("playing");
       setPendingNext(null);
-
-      // ✅ LEARN: auto show hint nếu có hint
-      const hasHint = !!String((ok.question as any)?.hint || "").trim();
       setShowHint(false);
     } finally {
       setLoading(false);
@@ -305,7 +348,9 @@ const QuizGameView = () => {
     if (!attemptId) return;
     fetchQuestion(attemptId, cursor).catch((e) => {
       console.log("fetchQuestion error:", e?.message || e);
-      router.back();
+      // Nếu lỗi ngay khi load, cho phép thoát luôn
+      shouldAllowLeaveRef.current = true;
+      router.replace("/(tabs)" as any);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attemptId]);
@@ -335,7 +380,11 @@ const QuizGameView = () => {
   const handleCheck = async () => {
     if (!question || !attemptId) return;
 
-    if ((question.questionType === "MULTIPLE_CHOICE" || question.questionType === "TRUE_FALSE") && !selectedOptionId) return;
+    if (
+      (question.questionType === "MULTIPLE_CHOICE" || question.questionType === "TRUE_FALSE") &&
+      !selectedOptionId
+    )
+      return;
     if (question.questionType === "FILL_BLANK" && !sanitizeFillInput(fillText).trim()) return;
 
     setLoading(true);
@@ -364,13 +413,17 @@ const QuizGameView = () => {
       setPendingNext(res.next ? { cursor: res.next.cursor, question: res.next.question } : null);
       setStatus("checked");
     } catch (e: any) {
-      console.log("submit error:", e?.response?.data?.message || e?.message || e);
+      openDialog({
+        type: "error",
+        title: "Lỗi",
+        message: e?.response?.data?.message || e?.message || "Không thể gửi đáp án.",
+        closeText: "OK",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ LEARN: See Answer -> lấy đáp án đúng (review) rồi submit đáp án đúng luôn
   const handleSeeAnswer = async () => {
     if (!question || !attemptId) return;
 
@@ -401,7 +454,11 @@ const QuizGameView = () => {
       const info = cm.get(qid);
 
       if (question.questionType === "FILL_BLANK") {
-        const correctTextRaw = (info?.correctAnswers?.[0] || question.options?.[0]?.content || "").toString();
+        const correctTextRaw = (
+          info?.correctAnswers?.[0] ||
+          question.options?.[0]?.content ||
+          ""
+        ).toString();
         const correctText = sanitizeFillInput(correctTextRaw);
         if (!correctText) return;
 
@@ -434,7 +491,6 @@ const QuizGameView = () => {
 
       const correctOptId =
         info?.correctOptionId || (question.options?.[0]?._id ? String(question.options[0]._id) : undefined);
-
       if (!correctOptId) return;
 
       setSelectedOptionId(String(correctOptId));
@@ -462,7 +518,12 @@ const QuizGameView = () => {
       setPendingNext(res.next ? { cursor: res.next.cursor, question: res.next.question } : null);
       setStatus("checked");
     } catch (e: any) {
-      console.log("seeAnswer error:", e?.response?.data?.message || e?.message || e);
+      openDialog({
+        type: "error",
+        title: "Lỗi",
+        message: e?.response?.data?.message || e?.message || "Không thể lấy đáp án.",
+        closeText: "OK",
+      });
     } finally {
       setLoading(false);
     }
@@ -477,14 +538,12 @@ const QuizGameView = () => {
       setFillText("");
       setStatus("playing");
       setPendingNext(null);
-
-      // ✅ mỗi câu mới: LEARN auto show hint nếu có
-      const hasHint = !!String((pendingNext.question as any)?.hint || "").trim();
       setShowHint(false);
-
       return;
     }
 
+    // Kết thúc game thành công -> cũng cho phép thoát
+    shouldAllowLeaveRef.current = true;
     router.replace({
       pathname: "/game/result",
       params: {
@@ -516,17 +575,32 @@ const QuizGameView = () => {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
         <AppText color={theme.colors.text.secondary}>No question</AppText>
-        <AppButton title="Back" onPress={() => router.back()} variant="outline" style={{ marginTop: theme.spacing.md }} />
+        {/* Lỗi thì cho thoát luôn */}
+        <AppButton
+          title="Back"
+          onPress={() => {
+            shouldAllowLeaveRef.current = true;
+            router.back();
+          }}
+          variant="outline"
+          style={{ marginTop: theme.spacing.md }}
+        />
       </View>
     );
   }
 
-  const currentIndexForHeader = cursor; // cursor bắt đầu từ 0
+  const currentIndexForHeader = cursor;
   const isLastQuestion = !pendingNext;
 
   return (
     <View style={styles.container}>
-      <QuizHeader current={currentIndexForHeader} total={total || 1} endless={isEndlessMode} onClose={handleRequestExit} />
+      {/* ✅ FIX: Chỉ gọi router.back(), beforeRemove sẽ tự chặn */}
+      <QuizHeader
+        current={currentIndexForHeader}
+        total={total || 1}
+        endless={isEndlessMode}
+        onClose={() => router.back()}
+      />
 
       <View style={styles.gameContent}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -535,10 +609,17 @@ const QuizGameView = () => {
               LEARN THIS WORD
             </AppText>
 
-            {/* ✅ LEARN: chỉ hiện nút Hint nếu có hint */}
             {isLearningMode && !!hintText && (
-              <TouchableOpacity onPress={() => setShowHint(!showHint)} style={styles.hintToggle} activeOpacity={0.6}>
-                <Ionicons name={showHint ? "eye-off-outline" : "bulb-outline"} size={18} color={theme.colors.secondary} />
+              <TouchableOpacity
+                onPress={() => setShowHint(!showHint)}
+                style={styles.hintToggle}
+                activeOpacity={0.6}
+              >
+                <Ionicons
+                  name={showHint ? "eye-off-outline" : "bulb-outline"}
+                  size={18}
+                  color={theme.colors.secondary}
+                />
                 <AppText size="sm" weight="bold" color={theme.colors.secondary} style={styles.hintText}>
                   {showHint ? "Hide Hint" : "Hint"}
                 </AppText>
@@ -562,7 +643,13 @@ const QuizGameView = () => {
           </View>
 
           {showHint && !!hintText && (
-            <AppBanner variant="info" icon="bulb" title="Hint: " message={hintText} containerStyle={styles.hintBanner} />
+            <AppBanner
+              variant="info"
+              icon="bulb"
+              title="Hint: "
+              message={hintText}
+              containerStyle={styles.hintBanner}
+            />
           )}
 
           {(question.questionType === "MULTIPLE_CHOICE" || question.questionType === "TRUE_FALSE") && (
@@ -641,7 +728,8 @@ const QuizGameView = () => {
                   loading ||
                   (question.questionType === "FILL_BLANK"
                     ? !sanitizeFillInput(fillText).trim()
-                    : (question.questionType === "MULTIPLE_CHOICE" || question.questionType === "TRUE_FALSE") &&
+                    : (question.questionType === "MULTIPLE_CHOICE" ||
+                      question.questionType === "TRUE_FALSE") &&
                     !selectedOptionId)
                 }
                 style={isLearningMode ? styles.halfButton : styles.fullButton}
@@ -667,6 +755,8 @@ const QuizGameView = () => {
         onClose={() => {
           if (abandoning) return;
           closeDialog();
+          // Nếu user bấm "Ở lại" hoặc tắt dialog, reset action để lần sau chặn lại từ đầu
+          pendingActionRef.current = null;
         }}
         onConfirm={dialog.type === "confirm" ? dialog.onConfirm : undefined}
         closeText={dialog.closeText}

@@ -43,9 +43,9 @@ function normalizeProfileLike(incoming: ProfileUser, prev?: ProfileUser | null):
     rawNextRank == null
       ? rawNextRank
       : {
-          neededXP: Math.max(0, Number((rawNextRank as any).neededXP ?? 0)),
-          remainingXP: Math.max(0, Number((rawNextRank as any).remainingXP ?? 0)),
-        };
+        neededXP: Math.max(0, Number((rawNextRank as any).neededXP ?? 0)),
+        remainingXP: Math.max(0, Number((rawNextRank as any).remainingXP ?? 0)),
+      };
 
   // ✅ normalize unclaimedRewardsCount
   const unclaimedRewardsCount =
@@ -98,21 +98,21 @@ export const useProfileStore = create<ProfileState>((set) => ({
         p.nextRank === undefined
           ? undefined
           : p.nextRank
-          ? {
+            ? {
               neededXP: Math.max(0, Number(p.nextRank.neededXP ?? 0)),
               remainingXP: Math.max(0, Number(p.nextRank.remainingXP ?? 0)),
             }
-          : null;
+            : null;
 
       const currentRank =
         p.currentRank === undefined
           ? undefined
           : p.currentRank
-          ? {
+            ? {
               rankLevel: Number(p.currentRank.rankLevel ?? 0),
               rankName: String(p.currentRank.rankName ?? ""),
             }
-          : null;
+            : null;
 
       return {
         ...state,

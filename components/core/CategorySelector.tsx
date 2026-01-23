@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { AppText } from '.';
 import theme from '../../theme';
+import AppText from './AppText';
 
 interface CategorySelectorProps {
     categories: string[];

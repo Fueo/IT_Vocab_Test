@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import theme from '../../../theme';
 import { AppText } from '../../core';
 import UserAvatar from '../../profile/core/UserAvatar';
-import { LeaderboardItem, TabKey } from './leaderboard.data';
+import { LeaderboardItem, TabKey } from './leaderboard.types';
 
 type Props = {
     item: LeaderboardItem;

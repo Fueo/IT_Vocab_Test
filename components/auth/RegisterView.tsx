@@ -2,15 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
-    Dimensions,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import { authApi } from "../../api/auth";
@@ -61,12 +61,20 @@ const RegisterView: React.FC = () => {
     message: "",
   });
 
-  const openDialog = (next: Omit<DialogState, "visible">) => {
+  const openDialog = useCallback((next: Omit<DialogState, "visible">) => {
     setDialog({ ...next, visible: true });
-  };
+  }, []);
 
-  const closeDialog = () => {
+  const closeDialog = useCallback(() => {
     setDialog((prev) => ({ ...prev, visible: false, onConfirm: undefined }));
+  }, []);
+
+  const getErrorMessage = (e: any) => {
+    if (e?.userMessage) return e.userMessage;
+    const serverMsg = e?.response?.data?.message;
+    if (typeof serverMsg === "string" && serverMsg.trim()) return serverMsg;
+    if (typeof e?.message === "string" && e.message.trim()) return e.message;
+    return "Register failed. Please try again.";
   };
 
   const validateInputs = (): boolean => {
@@ -105,12 +113,12 @@ const RegisterView: React.FC = () => {
 
     if (!isAgreed) {
       isValid = false;
-      // dùng dialog thay Alert
       openDialog({
         type: "warning",
         title: "Agreement Required",
         message: "Please agree to the Terms & Conditions to continue.",
-        closeText: "OK",
+        confirmText: "OK",
+        onConfirm: closeDialog,
       });
     }
 
@@ -127,6 +135,7 @@ const RegisterView: React.FC = () => {
     if (!validateInputs()) return;
 
     setIsRegistering(true);
+
     try {
       // 1) Register
       await authApi.register({ name: fullName, email, password });
@@ -134,12 +143,12 @@ const RegisterView: React.FC = () => {
       // 2) Send OTP for signup
       await authApi.sendCode({ email, purpose: "signup" });
 
-      // 3) Success dialog -> confirm -> navigate VerifyCode
+      // 3) Success dialog -> Confirm -> navigate VerifyCode
       openDialog({
         type: "success",
         title: "Account Created",
         message: "We sent a verification code to your email. Please verify to activate your account.",
-        closeText: "Verify Now",
+        confirmText: "Verify Now",
         onConfirm: () => {
           closeDialog();
           router.replace({
@@ -149,12 +158,9 @@ const RegisterView: React.FC = () => {
         },
       });
     } catch (e: any) {
-      const msg =
-        e?.response?.data?.message ||
-        e?.message ||
-        "Register failed. Please try again.";
+      const msg = getErrorMessage(e);
 
-      // gợi ý: nếu email exists thì set error field cho đẹp
+      // nếu server trả lỗi liên quan email -> set vào field cho đẹp
       if (String(msg).toLowerCase().includes("email")) {
         setErrors((prev) => ({ ...prev, email: msg }));
       }
@@ -163,7 +169,8 @@ const RegisterView: React.FC = () => {
         type: "error",
         title: "Register Failed",
         message: msg,
-        closeText: "OK",
+        confirmText: "OK",
+        onConfirm: closeDialog,
       });
     } finally {
       setIsRegistering(false);
@@ -176,8 +183,16 @@ const RegisterView: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false} bounces={false}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1 }}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
         <StatusBar style="light" />
 
         <LinearGradient
@@ -193,7 +208,12 @@ const RegisterView: React.FC = () => {
             <AppText size="title" weight="bold" color="white" style={styles.headerTitle}>
               Create Account
             </AppText>
-            <AppText size="sm" color="rgba(255,255,255,0.9)" centered style={{ paddingHorizontal: theme.spacing.xxl }}>
+            <AppText
+              size="sm"
+              color="rgba(255,255,255,0.9)"
+              centered
+              style={{ paddingHorizontal: theme.spacing.xxl }}
+            >
               Join thousands of FPT Poly students learning IT English
             </AppText>
           </View>
@@ -259,7 +279,11 @@ const RegisterView: React.FC = () => {
           />
 
           <View style={styles.checkboxContainer}>
-            <TouchableOpacity onPress={() => setIsAgreed(!isAgreed)} style={styles.checkboxRow} disabled={isRegistering}>
+            <TouchableOpacity
+              onPress={() => setIsAgreed(!isAgreed)}
+              style={styles.checkboxRow}
+              disabled={isRegistering}
+            >
               <Ionicons
                 name={isAgreed ? "checkbox" : "square-outline"}
                 size={24}
@@ -271,16 +295,41 @@ const RegisterView: React.FC = () => {
               <AppText size="xs" color={theme.colors.text.secondary}>
                 I agree to the{" "}
               </AppText>
-              <TouchableOpacity onPress={() => openDialog({ type: "info", title: "Terms & Conditions", message: "Coming soon.", closeText: "OK" })} disabled={isRegistering}>
+
+              <TouchableOpacity
+                onPress={() =>
+                  openDialog({
+                    type: "info",
+                    title: "Terms & Conditions",
+                    message: "Coming soon.",
+                    confirmText: "OK",
+                    onConfirm: closeDialog,
+                  })
+                }
+                disabled={isRegistering}
+              >
                 <AppText size="xs" color={theme.colors.secondary} weight="bold">
                   Terms & Conditions
                 </AppText>
               </TouchableOpacity>
+
               <AppText size="xs" color={theme.colors.text.secondary}>
                 {" "}
                 and{" "}
               </AppText>
-              <TouchableOpacity onPress={() => openDialog({ type: "info", title: "Privacy Policy", message: "Coming soon.", closeText: "OK" })} disabled={isRegistering}>
+
+              <TouchableOpacity
+                onPress={() =>
+                  openDialog({
+                    type: "info",
+                    title: "Privacy Policy",
+                    message: "Coming soon.",
+                    confirmText: "OK",
+                    onConfirm: closeDialog,
+                  })
+                }
+                disabled={isRegistering}
+              >
                 <AppText size="xs" color={theme.colors.secondary} weight="bold">
                   Privacy Policy
                 </AppText>
@@ -294,7 +343,10 @@ const RegisterView: React.FC = () => {
             variant="primary"
             disabled={!isAgreed || isRegistering}
             isLoading={isRegistering}
-            style={StyleSheet.flatten([styles.registerBtn, (!isAgreed || isRegistering) && { opacity: 0.6 }])}
+            style={StyleSheet.flatten([
+              styles.registerBtn,
+              (!isAgreed || isRegistering) && { opacity: 0.6 },
+            ])}
           />
 
           <View style={styles.dividerContainer}>
@@ -305,15 +357,33 @@ const RegisterView: React.FC = () => {
             <View style={styles.line} />
           </View>
 
-          <AppButton title="Continue with Google" variant="google" onPress={() => {}} style={styles.socialBtn} disabled={isRegistering} />
-          <AppButton title="Continue with Facebook" variant="outline" icon="logo-facebook" onPress={() => {}} style={styles.socialBtn} disabled={isRegistering} />
+          <AppButton
+            title="Continue with Google"
+            variant="google"
+            onPress={() => { }}
+            style={styles.socialBtn}
+            disabled={isRegistering}
+          />
+          <AppButton
+            title="Continue with Facebook"
+            variant="outline"
+            icon="logo-facebook"
+            onPress={() => { }}
+            style={styles.socialBtn}
+            disabled={isRegistering}
+          />
 
           <View style={styles.footerRow}>
             <AppText size="sm" color={theme.colors.text.secondary}>
               Already have an account?
             </AppText>
             <TouchableOpacity onPress={handleLoginPress} disabled={isRegistering}>
-              <AppText size="sm" color={theme.colors.secondary} weight="bold" style={{ marginLeft: theme.spacing.xs }}>
+              <AppText
+                size="sm"
+                color={theme.colors.secondary}
+                weight="bold"
+                style={{ marginLeft: theme.spacing.xs }}
+              >
                 Log In
               </AppText>
             </TouchableOpacity>
@@ -321,6 +391,7 @@ const RegisterView: React.FC = () => {
         </View>
       </ScrollView>
 
+      {/* ✅ Dialog: lỗi/success/info... */}
       <AppDialog
         visible={dialog.visible}
         type={dialog.type as any}
@@ -329,13 +400,7 @@ const RegisterView: React.FC = () => {
         closeText={dialog.closeText}
         confirmText={dialog.confirmText}
         isDestructive={dialog.isDestructive}
-        onClose={() => {
-          // nếu dialog có onConfirm mà user bấm close button thì cũng chạy onConfirm theo UX "1 nút"
-          // Nhưng vì AppDialog của bạn chỉ gọi onClose khi bấm nút close,
-          // nên mình map: nếu có onConfirm thì chạy onConfirm ở onClose.
-          if (dialog.onConfirm) dialog.onConfirm();
-          else closeDialog();
-        }}
+        onClose={closeDialog}
         onConfirm={dialog.onConfirm}
       />
     </KeyboardAvoidingView>
@@ -344,7 +409,12 @@ const RegisterView: React.FC = () => {
 
 const styles = StyleSheet.create({
   scrollView: { flex: 1, backgroundColor: "white" },
-  headerContainer: { height: height * 0.4, justifyContent: "center", alignItems: "center", paddingVertical: theme.spacing.xxl },
+  headerContainer: {
+    height: height * 0.4,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: theme.spacing.xxl,
+  },
   headerContent: { alignItems: "center", marginTop: theme.spacing.md, width: "100%" },
   logoCircle: {
     width: 80,
@@ -372,7 +442,12 @@ const styles = StyleSheet.create({
     minHeight: height * 0.8,
   },
   inputStyle: { backgroundColor: "#F3F4F6", borderWidth: 0 },
-  checkboxContainer: { flexDirection: "row", alignItems: "center", marginBottom: theme.spacing.lg, marginTop: theme.spacing.xs },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: theme.spacing.lg,
+    marginTop: theme.spacing.xs,
+  },
   checkboxRow: { marginRight: theme.spacing.smd },
   policyTextContainer: { flex: 1, flexDirection: "row", flexWrap: "wrap", alignItems: "center" },
   registerBtn: { borderRadius: 30, height: 50, marginBottom: theme.spacing.lg },
@@ -380,7 +455,12 @@ const styles = StyleSheet.create({
   line: { flex: 1, height: 1, backgroundColor: theme.colors.border },
   orText: { marginHorizontal: theme.spacing.smd },
   socialBtn: { marginBottom: theme.spacing.md },
-  footerRow: { flexDirection: "row", justifyContent: "center", marginTop: theme.spacing.smd, marginBottom: theme.spacing.lg },
+  footerRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: theme.spacing.smd,
+    marginBottom: theme.spacing.lg,
+  },
 });
 
 export default RegisterView;

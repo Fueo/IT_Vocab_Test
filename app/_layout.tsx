@@ -89,7 +89,7 @@ export default function RootLayout() {
         <Stack.Screen name="course/[id]" options={{ headerShown: false, presentation: "card" }} />
         <Stack.Screen name="game/[id]" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="dictionary/[id]" options={{ headerShown: false, gestureEnabled: false }} />
-        <Stack.Screen name="feedback/index" options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="feedback/homepage" options={{ headerShown: false, gestureEnabled: false }} />
       </Stack>
 
       {/* overlay status bar */}
@@ -117,6 +117,7 @@ export default function RootLayout() {
         isDestructive={false}
         onClose={handleCloseDialog}
         onConfirm={handleReLogin}
+        onlyConfirm={true}
       />
     </>
   );

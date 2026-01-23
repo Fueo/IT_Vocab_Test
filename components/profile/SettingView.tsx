@@ -9,10 +9,17 @@ import AppHeader from '../core/AppDetailHeader';
 import AppText from '../core/AppText';
 import MenuItem from '../core/MenuItem'; // Import MenuItem đã nâng cấp
 
+// ✅ Import Store
+import { useProfileStore } from '../../store/useProfileStore';
+
 const SettingView = () => {
     const [isPushEnabled, setIsPushEnabled] = useState(true);
     const [isSoundEnabled, setIsSoundEnabled] = useState(true);
     const [isDarkMode, setIsDarkMode] = useState(false);
+
+    // ✅ Lấy profile từ store
+    const profile = useProfileStore((s) => s.profile);
+    const isLoggedIn = !!profile; // Biến check trạng thái đăng nhập
 
     const togglePush = () => setIsPushEnabled(prev => !prev);
     const toggleSound = () => setIsSoundEnabled(prev => !prev);
@@ -99,36 +106,41 @@ const SettingView = () => {
                     />
                 </SectionContainer>
 
-                {/* --- SECTION 2: ACCOUNT --- */}
-                <SectionContainer title="Account">
-                    <MenuItem
-                        icon="person-outline"
-                        label="Edit Profile"
-                        subtitle="Update name, email, avatar"
-                        onPress={() => handleNavigation('edit')}
-                        showBorder={false} // Tắt viền ngoài để nằm trong card
-                        showDivider={true} // Hiện đường kẻ dưới
-                    />
-                    <MenuItem
-                        icon="lock-closed-outline"
-                        label="Change Password"
-                        subtitle="Update your security"
-                        onPress={() => handleNavigation('changepassword')}
-                        showBorder={false}
-                        showDivider={false} // Mục cuối không cần đường kẻ
-                    />
-                </SectionContainer>
+                {/* ✅ SECTION 2: ACCOUNT - Chỉ hiện khi ĐÃ ĐĂNG NHẬP */}
+                {isLoggedIn && (
+                    <SectionContainer title="Account">
+                        <MenuItem
+                            icon="person-outline"
+                            label="Edit Profile"
+                            subtitle="Update name, email, avatar"
+                            onPress={() => handleNavigation('edit')}
+                            showBorder={false}
+                            showDivider={true}
+                        />
+                        <MenuItem
+                            icon="lock-closed-outline"
+                            label="Change Password"
+                            subtitle="Update your security"
+                            onPress={() => handleNavigation('changepassword')}
+                            showBorder={false}
+                            showDivider={false}
+                        />
+                    </SectionContainer>
+                )}
 
                 {/* --- SECTION 3: SUPPORT --- */}
                 <SectionContainer title="Support">
-                    <MenuItem
-                        icon="chatbox-ellipses-outline"
-                        label="Feedback"
-                        subtitle="Share your thoughts & bug reports"
-                        onPress={() => router.replace('/feedback/homepage')} // Điều hướng đến trang FeedbackView
-                        showBorder={false}
-                        showDivider={true}
-                    />
+                    {/* ✅ FEEDBACK - Chỉ hiện khi ĐÃ ĐĂNG NHẬP */}
+                    {isLoggedIn && (
+                        <MenuItem
+                            icon="chatbox-ellipses-outline"
+                            label="Feedback"
+                            subtitle="Share your thoughts & bug reports"
+                            onPress={() => router.replace('/feedback/homepage')}
+                            showBorder={false}
+                            showDivider={true}
+                        />
+                    )}
 
                     <MenuItem
                         icon="help-circle-outline"

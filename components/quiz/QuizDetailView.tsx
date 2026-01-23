@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 
 import theme from "../../theme";
 import { AppBanner } from "../core";
@@ -8,6 +8,9 @@ import DetailHeader from "../core/AppDetailHeader";
 import ModeCard from "./core/ModeCard";
 
 import { quizApi, QuizMode, StartAttemptBody } from "../../api/quiz";
+
+// ✅ Import AppDialog
+import AppDialog, { DialogType } from "../core/AppDialog";
 
 type FromTab = "TOPIC" | "RANDOM" | undefined;
 
@@ -59,6 +62,54 @@ const QuizDetailView = () => {
 
   const [starting, setStarting] = useState(false);
 
+  // ✅ giữ lại body lần bấm gần nhất để retry sau khi abandon
+  const [pendingStartBody, setPendingStartBody] = useState<StartAttemptBody | null>(null);
+
+  // ===== ✅ DIALOG STATE (mở rộng để confirm/cancel) =====
+  const [dialogConfig, setDialogConfig] = useState<{
+    visible: boolean;
+    type: DialogType;
+    title: string;
+    message: string;
+    closeText?: string;
+    confirmText?: string;
+    isDestructive?: boolean;
+    onlyConfirm?: boolean;
+    disableBackdropClose?: boolean;
+    onConfirm?: () => void;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    type: "error",
+    title: "",
+    message: "",
+  });
+
+  const handleCloseDialog = () => {
+    setDialogConfig((prev) => ({
+      ...prev,
+      visible: false,
+      onConfirm: undefined,
+      onCancel: undefined,
+      disableBackdropClose: false,
+    }));
+  };
+
+  const goToGame = (attempt: any, cursor?: number) => {
+    const attemptId = String(attempt?.attemptId || attempt?._id || "");
+    router.replace({
+      pathname: "/game/[id]",
+      params: {
+        id: attemptId,
+        attemptId,
+        cursor: String(cursor ?? 0),
+        mode: String(attempt?.mode ?? ""),
+        topicId: String(attempt?.topicId ?? ""),
+        level: attempt?.level != null ? String(attempt.level) : "",
+      },
+    });
+  };
+
   const startQuiz = async (modeKey: "learning" | "review" | "random" | "endless") => {
     if (starting) return;
 
@@ -73,40 +124,121 @@ const QuizDetailView = () => {
     // TOPIC/LEARN cần topicId + level
     if (mode === "TOPIC" || mode === "LEARN") {
       if (parsed.kind !== "TOPIC" || !parsed.topicId) {
-        Alert.alert("Thiếu dữ liệu", "Không xác định được topicId/level để bắt đầu quiz.");
+        setDialogConfig({
+          visible: true,
+          type: "warning",
+          title: "Thiếu dữ liệu",
+          message: "Không xác định được chủ đề hoặc cấp độ để bắt đầu bài học.",
+          confirmText: "Đóng",
+          onlyConfirm: true,
+        });
         return;
       }
       body.topicId = parsed.topicId;
       body.level = parsed.level ?? 1;
-      body.totalQuestions = 10; // bạn có thể chỉnh nếu muốn
+      body.totalQuestions = 10;
     }
 
     // RANDOM cần totalQuestions
     if (mode === "RANDOM") {
-      body.totalQuestions = safeTotalQuestions; // ví dụ 10
+      body.totalQuestions = safeTotalQuestions;
     }
 
-    // INFINITE: BE sẽ lấy batch=10, không cần totalQuestions
+    // ✅ lưu lại để có thể start lại sau khi abandon
+    setPendingStartBody(body);
 
     try {
       setStarting(true);
       const res = await quizApi.start(body);
-
-      // ✅ navigate sang game: truyền attemptId + cursor
-      router.replace({
-        pathname: "/game/[id]",
-        params: {
-          id: res.attempt.attemptId, // dùng attemptId làm id route cho game là tiện nhất
-          attemptId: res.attempt.attemptId,
-          cursor: String(res.cursor ?? 0),
-          mode: res.attempt.mode,
-          topicId: res.attempt.topicId ?? "",
-          level: res.attempt.level != null ? String(res.attempt.level) : "",
-        },
-      });
+      goToGame(res.attempt, res.cursor);
     } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || "Start quiz thất bại.";
-      Alert.alert("Không thể bắt đầu", msg);
+      const status = e?.response?.status;
+      const data = e?.response?.data;
+
+      // ✅ CASE: đang có quiz IN_PROGRESS (BE trả 409 + inProgressAttempt)
+      if (status === 409 && data?.inProgressAttempt) {
+        const inProgress = data.inProgressAttempt;
+        const inProgressAttemptId = String(inProgress?._id || inProgress?.attemptId || "");
+
+        setDialogConfig({
+          visible: true,
+          type: "confirm",
+          title: "Bạn đang làm dở 1 quiz",
+          message:
+            data?.message ||
+            "Bạn đang có một quiz đang làm dở. Bạn muốn hủy quiz hiện tại hay làm tiếp?",
+          closeText: "Hủy quiz",
+          confirmText: "Làm tiếp",
+          disableBackdropClose: true, // không cho bấm nền đóng
+          isDestructive: true, // màu confirm type sẽ theo error/primary (tùy theme)
+
+          // ✅ Làm tiếp
+          onConfirm: () => {
+            handleCloseDialog();
+            // cursor không có từ BE -> default 0 (game screen thường tự load lại theo attempt)
+            goToGame(
+              {
+                attemptId: inProgressAttemptId,
+                mode: inProgress?.mode,
+                topicId: inProgress?.topicId,
+                level: inProgress?.level,
+              },
+              0
+            );
+          },
+
+          // ✅ Hủy quiz rồi start quiz mới (theo body vừa bấm)
+          onCancel: async () => {
+            try {
+              handleCloseDialog();
+              setStarting(true);
+
+              if (inProgressAttemptId) {
+                await quizApi.abandon(inProgressAttemptId);
+              }
+
+              const nextBody = pendingStartBody || body;
+              const res2 = await quizApi.start(nextBody);
+              goToGame(res2.attempt, res2.cursor);
+            } catch (err: any) {
+              const msg =
+                err?.userMessage ||
+                err?.response?.data?.message ||
+                err?.message ||
+                "Không thể hủy quiz hiện tại. Vui lòng thử lại.";
+
+              setDialogConfig({
+                visible: true,
+                type: "error",
+                title: "Rất tiếc!",
+                message: msg,
+                confirmText: "Đóng",
+                onlyConfirm: true,
+              });
+            } finally {
+              setStarting(false);
+            }
+          },
+        });
+
+        return;
+      }
+
+      // ✅ fallback: lỗi bình thường
+      const msg =
+        e?.userMessage ||
+        e?.response?.data?.message ||
+        e?.message ||
+        "Không thể bắt đầu bài kiểm tra.";
+
+      setDialogConfig({
+        visible: true,
+        type: "error",
+        title: "Rất tiếc!",
+        message: msg,
+        confirmText: "Đóng",
+        onlyConfirm: true,
+      });
     } finally {
       setStarting(false);
     }
@@ -116,7 +248,11 @@ const QuizDetailView = () => {
     <View style={styles.container}>
       <DetailHeader title={displayTitle} subtitle="Choose your learning mode" />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
         <View style={styles.modesContainer}>
           {showLearningReview && (
             <ModeCard
@@ -167,6 +303,22 @@ const QuizDetailView = () => {
           />
         </View>
       </ScrollView>
+
+      {/* ✅ Render Dialog (đã hỗ trợ confirm/cancel + disable backdrop close) */}
+      <AppDialog
+        visible={dialogConfig.visible}
+        type={dialogConfig.type}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        onClose={handleCloseDialog}
+        onConfirm={dialogConfig.onConfirm}
+        onCancel={dialogConfig.onCancel}
+        closeText={dialogConfig.closeText}
+        confirmText={dialogConfig.confirmText}
+        isDestructive={dialogConfig.isDestructive}
+        onlyConfirm={dialogConfig.onlyConfirm}
+        disableBackdropClose={dialogConfig.disableBackdropClose}
+      />
     </View>
   );
 };

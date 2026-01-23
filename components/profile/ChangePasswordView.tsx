@@ -1,30 +1,33 @@
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { router } from "expo-router";
+import React, { useState } from "react";
 import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
     StyleSheet,
-    View
-} from 'react-native';
+    View,
+} from "react-native";
 
-import { authApi } from '../../api/auth';
-import { tokenStore } from '../../storage/token';
-import theme from '../../theme';
-import { AppBanner, AppButton, AppDetailHeader, AppInput } from '../core';
-import AppDialog, { DialogType } from '../core/AppDialog';
+import { authApi } from "../../api/auth";
+import { tokenStore } from "../../storage/token";
+import theme from "../../theme";
+import { AppBanner, AppButton, AppDetailHeader, AppInput } from "../core";
+import AppDialog, { DialogType } from "../core/AppDialog";
+
+// ✅ clear zustand profile
+import { useProfileStore } from "../../store/useProfileStore";
 
 const ChangePasswordView = () => {
     // --- State Dữ liệu ---
-    const [currentPass, setCurrentPass] = useState('');
-    const [newPass, setNewPass] = useState('');
-    const [confirmPass, setConfirmPass] = useState('');
+    const [currentPass, setCurrentPass] = useState("");
+    const [newPass, setNewPass] = useState("");
+    const [confirmPass, setConfirmPass] = useState("");
 
     // --- State Lỗi ---
     const [errors, setErrors] = useState({
-        currentPass: '',
-        newPass: '',
-        confirmPass: ''
+        currentPass: "",
+        newPass: "",
+        confirmPass: "",
     });
 
     // Loading State
@@ -36,17 +39,45 @@ const ChangePasswordView = () => {
         type: DialogType;
         title: string;
         message?: string;
-        requireRelogin?: boolean; // Flag để xử lý logout
+        requireRelogin?: boolean;
     }>({
         visible: false,
-        type: 'info',
-        title: '',
-        message: '',
+        type: "info",
+        title: "",
+        message: "",
         requireRelogin: false,
     });
 
+    const getErrorMessage = (e: any) => {
+        if (e?.userMessage) return e.userMessage;
+        const serverMsg = e?.response?.data?.message;
+        if (typeof serverMsg === "string" && serverMsg.trim()) return serverMsg;
+        if (typeof e?.message === "string" && e.message.trim()) return e.message;
+        return "Failed to update password.";
+    };
+
+    const doRelogin = async () => {
+        // 1) clear token
+        await tokenStore.clearTokens();
+
+        // 2) clear zustand profile
+        try {
+            useProfileStore.getState().clear();
+        } catch {
+            // ignore
+        }
+
+        // 3) reset navigation stack (expo-router)
+        if (router.canDismiss()) {
+            router.dismissAll();
+        }
+
+        // 4) go login
+        router.replace("/auth/login" as any);
+    };
+
     const closeDialog = () => {
-        setDialog((p) => ({ ...p, visible: false }));
+        setDialog((prev) => ({ ...prev, visible: false }));
         // Nếu requireRelogin = true thì đóng dialog xong cũng logout luôn
         if (dialog.requireRelogin) {
             doRelogin();
@@ -55,30 +86,18 @@ const ChangePasswordView = () => {
 
     // --- Helper: Xóa lỗi khi nhập ---
     const handleChange = (field: keyof typeof errors, value: string) => {
-        if (field === 'currentPass') setCurrentPass(value);
-        if (field === 'newPass') setNewPass(value);
-        if (field === 'confirmPass') setConfirmPass(value);
+        if (field === "currentPass") setCurrentPass(value);
+        if (field === "newPass") setNewPass(value);
+        if (field === "confirmPass") setConfirmPass(value);
 
         if (errors[field]) {
-            setErrors(prev => ({ ...prev, [field]: '' }));
+            setErrors((prev) => ({ ...prev, [field]: "" }));
         }
-    };
-
-    const doRelogin = async () => {
-        // 1. Xóa token cũ
-        await tokenStore.clearTokens();
-
-        if (router.canDismiss()) {
-            router.dismissAll();
-        }
-
-        // 2. Đá về login
-        router.replace('/auth/login' as any);
     };
 
     // --- Handlers ---
     const handleUpdate = async () => {
-        let newErrors = { currentPass: '', newPass: '', confirmPass: '' };
+        let newErrors = { currentPass: "", newPass: "", confirmPass: "" };
         let hasError = false;
 
         // 1. Check Current Password
@@ -91,12 +110,11 @@ const ChangePasswordView = () => {
         if (!newPass) {
             newErrors.newPass = "Please enter a new password.";
             hasError = true;
-        } else if (newPass.length <= 6) { 
-            // ✅ Validate độ dài > 6 (min 6 ký tự)
+        } else if (newPass.length < 6) {
+            // ✅ min 6
             newErrors.newPass = "Password must be at least 6 characters.";
             hasError = true;
         } else if (newPass === currentPass) {
-            // ✅ Mật khẩu mới không được trùng cũ
             newErrors.newPass = "New password must be different from current password.";
             hasError = true;
         }
@@ -120,20 +138,20 @@ const ChangePasswordView = () => {
                 newPassword: newPass,
             });
 
-            // ✅ Thành công -> Hiện dialog Success (dùng type success thay vì confirm)
             setDialog({
                 visible: true,
-                type: 'success', // Icon tick xanh
-                title: 'Password Updated',
-                message: res?.message || 'Your password has been changed. Please log in again.',
-                requireRelogin: true, // Bật cờ này để bắt buộc logout
+                type: "success",
+                title: "Password Updated",
+                message: res?.message || "Your password has been changed. Please log in again.",
+                requireRelogin: true,
             });
         } catch (error: any) {
-            const msg = error?.response?.data?.message || error?.message || "Failed to update password.";
+            const msg = getErrorMessage(error);
+
             setDialog({
                 visible: true,
-                type: 'error',
-                title: 'Update Failed',
+                type: "error",
+                title: "Update Failed",
                 message: msg,
                 requireRelogin: false,
             });
@@ -147,13 +165,10 @@ const ChangePasswordView = () => {
             <AppDetailHeader title="Change Password" />
 
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
                 style={{ flex: 1 }}
             >
-                <ScrollView
-                    contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                >
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <AppBanner
                         variant="warning"
                         message="Make sure your new password is strong and secure."
@@ -164,7 +179,7 @@ const ChangePasswordView = () => {
                         <AppInput
                             label="CURRENT PASSWORD"
                             value={currentPass}
-                            onChangeText={(val) => handleChange('currentPass', val)}
+                            onChangeText={(val) => handleChange("currentPass", val)}
                             placeholder="Enter current password"
                             icon="lock-closed-outline"
                             isPassword={true}
@@ -176,7 +191,7 @@ const ChangePasswordView = () => {
                         <AppInput
                             label="NEW PASSWORD"
                             value={newPass}
-                            onChangeText={(val) => handleChange('newPass', val)}
+                            onChangeText={(val) => handleChange("newPass", val)}
                             placeholder="Enter new password (min 6 chars)"
                             icon="lock-closed-outline"
                             isPassword={true}
@@ -186,7 +201,7 @@ const ChangePasswordView = () => {
                         <AppInput
                             label="CONFIRM PASSWORD"
                             value={confirmPass}
-                            onChangeText={(val) => handleChange('confirmPass', val)}
+                            onChangeText={(val) => handleChange("confirmPass", val)}
                             placeholder="Re-enter new password"
                             icon="lock-closed-outline"
                             isPassword={true}
@@ -206,22 +221,20 @@ const ChangePasswordView = () => {
                     <AppButton
                         title="Forgot Password?"
                         variant="link"
-                        onPress={() => router.push('/auth/forgetpassword' as any)}
+                        onPress={() => router.push("/auth/forgetpassword" as any)}
                     />
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            {/* ✅ AppDialog Logic */}
+            {/* ✅ AppDialog */}
             <AppDialog
                 visible={dialog.visible}
                 type={dialog.type}
                 title={dialog.title}
                 message={dialog.message}
-                // Nếu thành công (requireRelogin) -> Ẩn nút đóng thường, chỉ hiện nút xác nhận
-                closeText={dialog.requireRelogin ? undefined : "Close"} 
+                closeText={dialog.requireRelogin ? "Cancel" : "Close"}
                 confirmText={dialog.requireRelogin ? "Log in again" : undefined}
-                
-                onClose={closeDialog} // Bấm ra ngoài hoặc nút Close đều chạy hàm này
+                onClose={closeDialog}
                 onConfirm={dialog.requireRelogin ? doRelogin : undefined}
             />
         </View>
@@ -231,16 +244,15 @@ const ChangePasswordView = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F9FAFB',
+        backgroundColor: "#F9FAFB",
     },
     scrollContent: {
         padding: theme.spacing.md,
     },
     formContainer: {
-        backgroundColor: 'white',
+        backgroundColor: "white",
         borderRadius: theme.radius.lg,
         padding: theme.spacing.md,
-        // Shadow nhẹ cho form
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
@@ -250,7 +262,7 @@ const styles = StyleSheet.create({
     },
     divider: {
         height: 1,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: "#F3F4F6",
         marginVertical: theme.spacing.md,
     },
 });

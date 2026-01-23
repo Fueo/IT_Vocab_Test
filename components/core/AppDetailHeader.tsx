@@ -3,14 +3,14 @@ import { router } from 'expo-router';
 import React from 'react';
 import { Platform, StatusBar as RNStatusBar, SafeAreaView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
-import { AppText } from '.';
 import theme from '../../theme';
+import AppText from './AppText';
 
 interface CourseHeaderProps {
     title: string;
     subtitle?: string;
     // 👇 UPDATE: Thêm prop này để nhận component bên phải
-    rightContent?: React.ReactNode; 
+    rightContent?: React.ReactNode;
 }
 
 const DetailHeader: React.FC<CourseHeaderProps> = ({ title, subtitle, rightContent }) => {

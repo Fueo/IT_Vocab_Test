@@ -66,6 +66,18 @@ const DictionaryView = () => {
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false);
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
 
+  const getErrorMessage = (e: any) => {
+    // ✅ nếu client.ts đã gắn sẵn
+    if (e?.userMessage) return e.userMessage;
+
+    // ✅ nếu BE trả message
+    const serverMsg = e?.response?.data?.message;
+    if (typeof serverMsg === "string" && serverMsg.trim()) return serverMsg;
+
+    // ✅ fallback
+    return "Không thể kết nối máy chủ. Vui lòng thử lại.";
+  };
+
   // --- Dialog State ---
   // 👇 Cập nhật type state để khớp với requireAuth (thêm confirmText)
   const [dialogConfig, setDialogConfig] = useState<{
@@ -74,7 +86,7 @@ const DictionaryView = () => {
     title: string;
     message: string;
     onConfirm?: () => void;
-    confirmText?: string; 
+    confirmText?: string;
   }>({
     visible: false,
     type: 'info',
@@ -88,11 +100,11 @@ const DictionaryView = () => {
   // Helper: Map từ PinnedItem (API) sang DictionaryItem (UI)
   const mapPinnedItemToDictionaryItem = (item: PinnedItem): DictionaryItem => {
     const w = item.word;
-    
+
     const def = (w.meaningEN && w.meaningEN.trim()) ||
-                (w.meaningVN && w.meaningVN.trim()) ||
-                (w.standFor && w.standFor.trim()) ||
-                (w.example && w.example.trim()) || "";
+      (w.meaningVN && w.meaningVN.trim()) ||
+      (w.standFor && w.standFor.trim()) ||
+      (w.example && w.example.trim()) || "";
 
     let levelStr: DictionaryLevel = 'beginner';
     if (w.level === 2) levelStr = 'intermediate';
@@ -118,7 +130,7 @@ const DictionaryView = () => {
 
   const loadData = useCallback(async (page: number, type: 'init' | 'refresh' | 'loadMore' = 'init') => {
     if (isLoadingRef.current && type === 'loadMore') return;
-    
+
     isLoadingRef.current = true;
     const seq = ++requestSeqRef.current;
 
@@ -175,9 +187,19 @@ const DictionaryView = () => {
 
       setTotalWords(total);
       setHasMore(page < totalPages);
-      
+
     } catch (error) {
-      console.error("Load data error:", error);
+      setDialogConfig({
+        visible: true,
+        type: "error",
+        title: "Lỗi tải dữ liệu",
+        message: getErrorMessage(error),
+        confirmText: "Xác nhận",
+        onConfirm: () => {
+          // đóng dialog
+          setDialogConfig((prev) => ({ ...prev, visible: false, onConfirm: undefined }));
+        },
+      });
     } finally {
       if (seq === requestSeqRef.current) {
         isLoadingRef.current = false;
@@ -190,10 +212,10 @@ const DictionaryView = () => {
 
   useEffect(() => {
     setIsLoading(true);
-    setWords([]); 
+    setWords([]);
     setCurrentPage(1);
     setHasMore(true);
-    
+
     const timer = setTimeout(() => {
       loadData(1, 'init');
     }, 350);
@@ -211,7 +233,7 @@ const DictionaryView = () => {
   const handleLoadMore = useCallback(() => {
     if (words.length === 0) return;
     if (!hasMore || isLoadingRef.current || isRefreshing) return;
-    
+
     const nextPage = currentPage + 1;
     setCurrentPage(nextPage);
     loadData(nextPage, 'loadMore');
@@ -231,11 +253,11 @@ const DictionaryView = () => {
       router,
       setDialogConfig,
       () => {
-         // Callback khi đã login
-         setBookmarkedOnly(true);
+        // Callback khi đã login
+        setBookmarkedOnly(true);
       },
       {
-         message: 'Bạn cần đăng nhập để xem danh sách từ đã lưu.'
+        message: 'Bạn cần đăng nhập để xem danh sách từ đã lưu.'
       }
     );
   };
@@ -256,8 +278,8 @@ const DictionaryView = () => {
         });
 
         if (bookmarkedOnly && isCurrentlyBookmarked) {
-            setWords(prev => prev.filter(w => w.id !== id));
-            setTotalWords(prev => Math.max(0, prev - 1));
+          setWords(prev => prev.filter(w => w.id !== id));
+          setTotalWords(prev => Math.max(0, prev - 1));
         }
 
         try {
@@ -268,7 +290,7 @@ const DictionaryView = () => {
           }
         } catch (error) {
           console.error("Pin word error:", error);
-          
+
           setBookmarks(prev => {
             const newSet = new Set(prev);
             !isCurrentlyBookmarked ? newSet.delete(id) : newSet.add(id);
@@ -284,7 +306,7 @@ const DictionaryView = () => {
         }
       },
       {
-         message: 'Bạn cần đăng nhập để lưu từ vựng vào kho cá nhân.'
+        message: 'Bạn cần đăng nhập để lưu từ vựng vào kho cá nhân.'
       }
     );
   };
@@ -293,7 +315,7 @@ const DictionaryView = () => {
     router.push(`/dictionary/${id}`);
   };
 
-  const displayedWords = words; 
+  const displayedWords = words;
 
   return (
     <View style={styles.container}>
@@ -301,7 +323,7 @@ const DictionaryView = () => {
         data={displayedWords}
         keyExtractor={(item, index) => (item?.id ? String(item.id) : `row-${index}`)}
         contentContainerStyle={styles.listContent}
-        onEndReachedThreshold={0.5} 
+        onEndReachedThreshold={0.5}
         onEndReached={handleLoadMore}
         removeClippedSubviews={true}
         initialNumToRender={10}
@@ -409,7 +431,7 @@ const DictionaryView = () => {
         onClose={() => setDialogConfig(prev => ({ ...prev, visible: false }))}
         onConfirm={dialogConfig.onConfirm}
         // 👇 Truyền confirmText từ state xuống
-        confirmText={dialogConfig.confirmText} 
+        confirmText={dialogConfig.confirmText}
       />
     </View>
   );

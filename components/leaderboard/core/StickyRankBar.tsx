@@ -1,16 +1,37 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { LinearGradient } from "expo-linear-gradient";
+import React from "react";
+import { StyleSheet, View } from "react-native";
 
-import theme from '../../../theme';
-import { AppText } from '../../core';
-import { TabKey } from './leaderboard.data';
+import theme from "../../../theme";
+import { AppText } from "../../core";
+import { TabKey } from "./leaderboard.types";
 
 type Props = {
     selectedTab: TabKey;
+
+    // ✅ data mới
+    position: number | null;      // BE trả về res.position
+    displayName?: string | null;  // ví dụ: "Guest User" hoặc user name
+    meValue?: number | null;      // XP hoặc Streak của bạn
 };
 
-const StickyRankBar: React.FC<Props> = ({ selectedTab }) => {
+const StickyRankBar: React.FC<Props> = ({
+    selectedTab,
+    position,
+    displayName,
+    meValue,
+}) => {
+    const unit = selectedTab === "XP" ? "XP" : "Days";
+
+    const valueText =
+        meValue == null
+            ? "—"
+            : selectedTab === "XP"
+                ? meValue.toLocaleString()
+                : String(meValue);
+
+    const rankText = position == null ? "—" : String(position);
+
     return (
         <View style={styles.floatingRankWrapper}>
             <LinearGradient
@@ -19,9 +40,9 @@ const StickyRankBar: React.FC<Props> = ({ selectedTab }) => {
                 end={{ x: 1, y: 0 }}
                 style={styles.floatingRankContainer}
             >
-                <View style={[styles.rankCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                <View style={[styles.rankCircle, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
                     <AppText weight="bold" color="white">
-                        8
+                        {rankText}
                     </AppText>
                 </View>
 
@@ -30,16 +51,16 @@ const StickyRankBar: React.FC<Props> = ({ selectedTab }) => {
                         Your Position
                     </AppText>
                     <AppText size="xs" color="rgba(255,255,255,0.8)">
-                        Guest User
+                        {displayName ?? "Guest User"}
                     </AppText>
                 </View>
 
-                <View style={{ alignItems: 'flex-end' }}>
+                <View style={{ alignItems: "flex-end" }}>
                     <AppText weight="bold" color="white" size="lg">
-                        {selectedTab === 'XP' ? '8,500' : '5'}
+                        {valueText}
                     </AppText>
                     <AppText size="xs" color="rgba(255,255,255,0.8)">
-                        {selectedTab === 'XP' ? 'XP' : 'Days'}
+                        {unit}
                     </AppText>
                 </View>
             </LinearGradient>
@@ -49,15 +70,15 @@ const StickyRankBar: React.FC<Props> = ({ selectedTab }) => {
 
 const styles = StyleSheet.create({
     floatingRankWrapper: {
-        position: 'absolute',
+        position: "absolute",
         bottom: 20,
         left: theme.spacing.md,
         right: theme.spacing.md,
         elevation: 8,
     },
     floatingRankContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        flexDirection: "row",
+        alignItems: "center",
         padding: theme.spacing.md,
         borderRadius: theme.radius.xl,
     },
@@ -65,8 +86,8 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
+        justifyContent: "center",
+        alignItems: "center",
         marginRight: theme.spacing.md,
     },
     itemContent: {

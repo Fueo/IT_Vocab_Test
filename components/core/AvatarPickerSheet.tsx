@@ -4,18 +4,18 @@ import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
 import React, { useEffect, useState } from "react";
 import {
-    Alert,
-    Dimensions,
-    FlatList,
-    Image,
-    Modal,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import theme from "../../theme";
-import { AppText } from "../core";
+import AppText from "./AppText";
 
 export type AvatarPickedAsset = {
   uri: string;        // ưu tiên file:// (localUri)
@@ -64,7 +64,7 @@ const AvatarPickerSheet: React.FC<AvatarPickerSheetProps> = ({
 
   useEffect(() => {
     if (visible) {
-      loadImages().catch(() => {});
+      loadImages().catch(() => { });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);

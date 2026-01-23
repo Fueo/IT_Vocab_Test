@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
@@ -11,7 +11,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Core
 import theme from "../../theme";
-import AppDialog from "../core/AppDialog";
+import { AppButton, AppText } from "../core";
+import AppDialog, { DialogType } from "../core/AppDialog";
 import HomeHeader from "../core/HomeHeader";
 import PaginationControl from "../core/PaginationControl";
 
@@ -19,14 +20,15 @@ import PaginationControl from "../core/PaginationControl";
 import InventoryDetailPanel from "./core/InventoryDetailPanel";
 import InventorySlot from "./core/InventorySlot";
 
-// ✅ API
+// API
 import { InventoryItemDto as ApiInvItem, inventoryApi } from "@/api/inventory";
 
-// ✅ refresh profile after equip/unequip
+// refresh profile after equip/unequip
+import { guestStore } from "@/storage/guest";
 import { tokenStore } from "../../storage/token";
 import { fetchProfile } from "../../store/profileActions";
 
-// ✅ mirror backend enums
+// mirror backend enums
 export type ApiItemType = "SKIN" | "CONSUMABLE";
 export type ApiDurationType = "PERMANENT" | "DAYS" | null;
 export type ApiEffectType = "XP_MULTIPLIER" | "NONE" | string;
@@ -100,11 +102,7 @@ function mapApiToUIItem(x: ApiInvItem): InventoryItem {
   const effectType: UIEffectType =
     isSkin ? "Frame_Skin" : apiEffectType === "XP_MULTIPLIER" ? "XP_Multiplier" : "None";
 
-  const activatedAt =
-    (x as any)?.active?.equippedAt ??
-    (x as any)?.active?.startAt ??
-    null;
-
+  const activatedAt = (x as any)?.active?.equippedAt ?? (x as any)?.active?.startAt ?? null;
   const expiredAt = (x as any)?.active?.endAt ?? null;
 
   return {
@@ -142,6 +140,8 @@ const InventoryView = () => {
     [params]
   );
 
+  const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
+
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -152,13 +152,97 @@ const InventoryView = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [dialogConfig, setDialogConfig] = useState<{
+    visible: boolean;
+    type: DialogType;
+    title: string;
+    message: string;
+    confirmText?: string;
+    closeText?: string;
+    isDestructive?: boolean;
+    onConfirm?: (() => void) | undefined;
+  }>({
+    visible: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const handledItemIdRef = useRef<string | null>(null);
 
+  const handleCloseDialog = () => {
+    setDialogConfig((prev) => ({ ...prev, visible: false, onConfirm: undefined }));
+  };
+
+  const openLoginConfirm = () => {
+    setDialogConfig({
+      visible: true,
+      type: "confirm",
+      title: "Đăng nhập ngay?",
+      message: "Bạn cần đăng nhập để sử dụng chức năng Inventory.",
+      closeText: "Để sau",
+      confirmText: "Đăng nhập",
+      isDestructive: false,
+      onConfirm: () => {
+        handleCloseDialog();
+        guestStore.clear();
+        if (router.canDismiss()) {
+          router.dismiss();
+        }
+        router.replace("/auth/login");
+      },
+    });
+  };
+
+  // ✅ Check token (chỉ để quyết định render + có gọi API hay không)
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const token = await tokenStore.getAccessToken();
+        if (!alive) return;
+        const ok = !!token;
+        setIsAuthed(ok);
+
+        if (!ok) {
+          // reset UI data
+          setPageItems([]);
+          setSelectedItem(null);
+          setCurrentPage(0);
+          setTotalPages(1);
+          setTotalItems(0);
+          setHasLoadedOnce(true);
+        }
+      } catch {
+        if (!alive) return;
+        setIsAuthed(false);
+        setPageItems([]);
+        setSelectedItem(null);
+        setCurrentPage(0);
+        setTotalPages(1);
+        setTotalItems(0);
+        setHasLoadedOnce(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const fetchPage = async (pageIndex0: number, opts?: { refreshing?: boolean }) => {
+    // ✅ CHẶN gọi API nếu chưa login
+    const token = await tokenStore.getAccessToken();
+    if (!token) {
+      setIsAuthed(false);
+      setLoading(false);
+      setRefreshing(false);
+      setHasLoadedOnce(true);
+      return;
+    }
+
+    setIsAuthed(true);
+
     const page1 = pageIndex0 + 1;
     const isRefresh = !!opts?.refreshing;
 
@@ -180,6 +264,15 @@ const InventoryView = () => {
       });
 
       return { mapped, pagination: res.pagination };
+    } catch (e: any) {
+      const msg = e?.userMessage || "Failed to load inventory.";
+      setDialogConfig({
+        visible: true,
+        type: "error",
+        title: "Rất tiếc",
+        message: msg,
+        confirmText: "Đóng",
+      });
     } finally {
       setLoading(false);
       if (isRefresh) setRefreshing(false);
@@ -187,7 +280,11 @@ const InventoryView = () => {
     }
   };
 
+  // ✅ chỉ fetch lần đầu nếu đã authed
   useEffect(() => {
+    if (isAuthed === null) return;
+    if (!isAuthed) return;
+
     fetchPage(0).catch(() => {
       setPageItems([]);
       setTotalPages(1);
@@ -195,11 +292,13 @@ const InventoryView = () => {
       setHasLoadedOnce(true);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAuthed]);
 
+  // ✅ handle deep link itemId: chỉ chạy khi authed
   useEffect(() => {
     if (!paramItemId) return;
     if (!hasLoadedOnce) return;
+    if (!isAuthed) return;
 
     if (handledItemIdRef.current === paramItemId) return;
 
@@ -223,7 +322,6 @@ const InventoryView = () => {
             setTotalPages(res.pagination?.totalPages ?? totalPages);
             setTotalItems(res.pagination?.total ?? totalItems);
             setSelectedItem(found);
-
             handledItemIdRef.current = paramItemId;
             return;
           }
@@ -236,11 +334,20 @@ const InventoryView = () => {
     };
 
     run();
-  }, [paramItemId, hasLoadedOnce, pageItems, totalPages, totalItems]);
+  }, [paramItemId, hasLoadedOnce, isAuthed, pageItems, totalPages, totalItems]);
 
   const currentItems = useMemo(() => pageItems, [pageItems]);
 
   const onRefresh = async () => {
+    // ✅ chưa login => không refresh API, chỉ mở confirm login
+    const token = await tokenStore.getAccessToken();
+    if (!token) {
+      setIsAuthed(false);
+      setRefreshing(false);
+      openLoginConfirm();
+      return;
+    }
+
     setRefreshing(true);
     try {
       await fetchPage(currentPage, { refreshing: true });
@@ -249,15 +356,20 @@ const InventoryView = () => {
     }
   };
 
-  // ✅ helper: refresh profile after equip/unequip (nếu có token)
   const refreshProfileIfLoggedIn = async () => {
     const token = await tokenStore.getAccessToken();
     if (!token) return;
     await fetchProfile({ silent: true });
   };
 
-  // ✅ Equip/Use/Unequip logic
   const handleUseItem = async () => {
+    const token = await tokenStore.getAccessToken();
+    if (!token) {
+      setIsAuthed(false);
+      openLoginConfirm();
+      return;
+    }
+
     if (!selectedItem) return;
 
     const isCosmetic = selectedItem.Item.ItemType === "Cosmetic";
@@ -269,15 +381,20 @@ const InventoryView = () => {
       if (isCosmetic && selectedItem.IsActive) {
         await inventoryApi.unequipSkin();
 
-        setSuccessMessage(`You unequipped ${selectedItem.Item.ItemName}.`);
-        setShowSuccessDialog(true);
+        setDialogConfig({
+          visible: true,
+          type: "success",
+          title: "Unequipped",
+          message: `You unequipped ${selectedItem.Item.ItemName}.`,
+          confirmText: "Đóng",
+        });
 
         await fetchPage(currentPage, { refreshing: true });
         await refreshProfileIfLoggedIn();
         return;
       }
 
-      // còn lại: dùng /use (equip skin hoặc dùng consumable)
+      // còn lại: useItem
       const res = await inventoryApi.useItem({ itemId: selectedItem.Item.ItemID });
 
       const msg =
@@ -285,18 +402,111 @@ const InventoryView = () => {
           ? `You have equipped ${selectedItem.Item.ItemName}!`
           : `You used ${selectedItem.Item.ItemName}.`;
 
-      setSuccessMessage(msg);
-      setShowSuccessDialog(true);
+      setDialogConfig({
+        visible: true,
+        type: "success",
+        title: "Success",
+        message: msg,
+        confirmText: "Đóng",
+      });
 
       await fetchPage(currentPage, { refreshing: true });
       await refreshProfileIfLoggedIn();
-    } catch {
-      setSuccessMessage(isCosmetic ? "Action failed. Please try again." : "Use item failed. Please try again.");
-      setShowSuccessDialog(true);
+    } catch (e: any) {
+      const errorMsg = e?.userMessage || (isCosmetic ? "Action failed." : "Use item failed.");
+
+      setDialogConfig({
+        visible: true,
+        type: "error",
+        title: "Rất tiếc!",
+        message: errorMsg,
+        confirmText: "Đóng",
+      });
+
       setRefreshing(false);
     }
   };
 
+  // ✅ Nếu user chưa login: chỉ render HomeHeader + empty state
+  if (isAuthed === false) {
+    return (
+      <View style={styles.container}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: insets.bottom + TAB_BAR_BUFFER },
+          ]}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} />}
+          alwaysBounceVertical
+          overScrollMode="always"
+          keyboardShouldPersistTaps="handled"
+        >
+          <HomeHeader
+            title="Inventory"
+            subtitle="Đăng nhập để xem vật phẩm"
+            rightIcon="filter"
+            onRightIconPress={() => { }}
+          />
+
+          <View style={[styles.lockWrap, { paddingHorizontal: SCREEN_PADDING }]}>
+            <AppText size="md" weight="bold" color={theme.colors.text.primary} style={{ textAlign: "center" }}>
+              Bạn cần đăng nhập để dùng chức năng này
+            </AppText>
+
+            <AppText size="sm" color={theme.colors.text.secondary} style={{ textAlign: "center", marginTop: 8 }}>
+              Inventory sẽ lưu trữ vật phẩm của bạn và cho phép trang bị / sử dụng.
+            </AppText>
+
+            <AppButton
+              title="Đăng nhập"
+              onPress={openLoginConfirm}
+              variant="primary"
+              style={{ marginTop: theme.spacing.lg, width: "100%" }}
+            />
+          </View>
+
+          <AppDialog
+            visible={dialogConfig.visible}
+            type={dialogConfig.type}
+            title={dialogConfig.title}
+            message={dialogConfig.message}
+            onClose={handleCloseDialog}
+            onConfirm={dialogConfig.type === "confirm" ? dialogConfig.onConfirm : undefined}
+            closeText={dialogConfig.closeText}
+            confirmText={dialogConfig.confirmText}
+            isDestructive={dialogConfig.isDestructive}
+          />
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // (Loading token lần đầu) -> có thể show skeleton nhẹ
+  if (isAuthed === null) {
+    return (
+      <View style={styles.container}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: insets.bottom + TAB_BAR_BUFFER },
+          ]}
+          alwaysBounceVertical
+          overScrollMode="always"
+        >
+          <HomeHeader title="Inventory" subtitle="Loading..." rightIcon="filter" onRightIconPress={() => { }} />
+          <View style={[styles.lockWrap, { paddingHorizontal: SCREEN_PADDING }]}>
+            <AppText size="sm" color={theme.colors.text.secondary} style={{ textAlign: "center" }}>
+              Đang kiểm tra đăng nhập...
+            </AppText>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // ✅ Logged in UI (full)
   return (
     <View style={styles.container}>
       <ScrollView
@@ -331,11 +541,9 @@ const InventoryView = () => {
                   />
                 ))}
 
-                {Array.from({ length: Math.max(0, ITEMS_PER_PAGE - currentItems.length) }).map(
-                  (_, i) => (
-                    <InventorySlot key={`empty_${i}`} size={SLOT_SIZE} />
-                  )
-                )}
+                {Array.from({ length: Math.max(0, ITEMS_PER_PAGE - currentItems.length) }).map((_, i) => (
+                  <InventorySlot key={`empty_${i}`} size={SLOT_SIZE} />
+                ))}
               </View>
 
               <PaginationControl
@@ -353,11 +561,15 @@ const InventoryView = () => {
         </View>
 
         <AppDialog
-          visible={showSuccessDialog}
-          type="success"
-          title="Success"
-          message={successMessage}
-          onClose={() => setShowSuccessDialog(false)}
+          visible={dialogConfig.visible}
+          type={dialogConfig.type}
+          title={dialogConfig.title}
+          message={dialogConfig.message}
+          onClose={handleCloseDialog}
+          onConfirm={dialogConfig.type === "confirm" ? dialogConfig.onConfirm : undefined}
+          closeText={dialogConfig.closeText}
+          confirmText={dialogConfig.confirmText}
+          isDestructive={dialogConfig.isDestructive}
         />
       </ScrollView>
     </View>
@@ -399,6 +611,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: SCREEN_PADDING,
     paddingVertical: 0,
     minHeight: 210,
+  },
+
+  // ✅ empty state when not logged in
+  lockWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 80,
   },
 });
 

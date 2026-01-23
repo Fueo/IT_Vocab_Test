@@ -31,6 +31,9 @@ import { Reward, RewardSectionKey, RewardState } from "./core/rewards.data";
 // ✅ NEW: profile store để giảm badge count
 import { useProfileStore } from "@/store/useProfileStore";
 
+// ✅ Dialog
+import AppDialog, { DialogType } from "../core/AppDialog";
+
 const FILTERS: { key: RewardSectionKey; label: string }[] = [
   { key: "level", label: "Level" },
   { key: "streak", label: "Streak" },
@@ -103,9 +106,9 @@ function mapMilestoneToReward(m: RoadmapMilestoneDto): Reward {
 
   return {
     ...common,
-    title: titleFromItem || m.title,
-    description: `Maintain ${m.dayNumber}-day streak to unlock this reward.`,
-    requirementText: `Maintain ${m.dayNumber}-day streak`,
+    title: titleFromItem || (m as any).title,
+    description: `Maintain ${(m as any).dayNumber}-day streak to unlock this reward.`,
+    requirementText: `Maintain ${(m as any).dayNumber}-day streak`,
     type: "badge",
     icon: "flame-outline",
   };
@@ -145,6 +148,25 @@ const RewardsView = () => {
     totalPages: 1,
   });
 
+  // ✅ Dialog giống InventoryView
+  const [dialogConfig, setDialogConfig] = useState<{
+    visible: boolean;
+    type: DialogType;
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+    confirmText?: string;
+  }>({
+    visible: false,
+    type: "error",
+    title: "",
+    message: "",
+  });
+
+  const handleCloseDialog = () => {
+    setDialogConfig((prev) => ({ ...prev, visible: false, onConfirm: undefined }));
+  };
+
   const statusBarHeight = Constants.statusBarHeight;
 
   const backScale = useMemo(() => new Animated.Value(1), []);
@@ -170,8 +192,7 @@ const RewardsView = () => {
     const nextPage = opts?.nextPage ?? page;
     const isRefresh = opts?.isRefresh ?? false;
 
-    // ✅ nếu không refresh và đã fetch rồi -> không gọi nữa
-    // (nhưng: pagination/claim vẫn gọi bằng isRefresh:true hoặc nextPage thay đổi)
+    // ✅ nếu không refresh và đã fetch rồi -> ưu tiên cache
     if (!isRefresh && hasFetchedRef.current[apiType]) {
       const cached = cacheRef.current[apiType];
       if (cached) {
@@ -225,15 +246,32 @@ const RewardsView = () => {
       };
       hasFetchedRef.current[apiType] = true;
     } catch (e: any) {
-      setErrorMsg(e?.response?.data?.message || "Failed to load rewards.");
+      // ✅ giống InventoryView: show dialog lỗi
+      const msg = e?.userMessage || e?.response?.data?.message || "Failed to load rewards.";
+
+      setErrorMsg(msg);
       setMilestones([]);
       const fallback = { page: nextPage, limit, total: 0, totalPages: 1 };
       setPagination(fallback);
       setPage(nextPage);
 
-      // ✅ vẫn cache empty để lần sau khỏi spam API nếu bạn muốn
+      // cache empty (tuỳ bạn có muốn hay không)
       cacheRef.current[apiType] = { milestones: [], pagination: fallback, page: nextPage };
       hasFetchedRef.current[apiType] = true;
+
+      setDialogConfig({
+        visible: true,
+        type: "error",
+        title: "Rất tiếc!",
+        message: msg,
+        confirmText: "Thử lại",
+        onConfirm: () => {
+          // ✅ retry chủ động
+          setDialogConfig((prev) => ({ ...prev, visible: false, onConfirm: undefined }));
+          hasFetchedRef.current[apiType] = false; // cho phép gọi lại
+          fetchRoadmap({ isRefresh: false, nextPage: 1 });
+        },
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -248,14 +286,12 @@ const RewardsView = () => {
 
     const cached = cacheRef.current[apiType];
     if (cached && hasFetchedRef.current[apiType]) {
-      // ✅ có cache -> set lại ngay, KHÔNG call API
       setMilestones(cached.milestones);
       setPagination(cached.pagination);
       setPage(cached.page);
       return;
     }
 
-    // ✅ chưa có cache -> gọi 1 lần
     fetchRoadmap({ isRefresh: false, nextPage: 1 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiType]);
@@ -278,10 +314,17 @@ const RewardsView = () => {
       const prev = Math.max(0, Number(profile?.unclaimedRewardsCount ?? 0));
       patchProfile({ unclaimedRewardsCount: Math.max(0, prev - 1) });
 
-      // ✅ claim xong refetch lại đúng trang hiện tại (có isRefresh => cho phép gọi API)
+      // ✅ claim xong refetch lại đúng trang hiện tại
       await fetchRoadmap({ isRefresh: true, nextPage: page });
-    } catch (e) {
-      // TODO: toast
+    } catch (e: any) {
+      const msg = e?.userMessage || "Claim failed.";
+      setDialogConfig({
+        visible: true,
+        type: "error",
+        title: "Rất tiếc!",
+        message: msg,
+        confirmText: "Đóng",
+      });
     } finally {
       setRefreshing(false);
     }
@@ -299,12 +342,10 @@ const RewardsView = () => {
   };
 
   const handlePageChange = (next: number) => {
-    // ✅ pagination là hành động chủ động -> call API
     fetchRoadmap({ isRefresh: true, nextPage: next });
   };
 
   const onPullRefresh = async () => {
-    // ✅ pull refresh -> call API
     setPage(1);
     await fetchRoadmap({ isRefresh: true, nextPage: 1 });
   };
@@ -338,7 +379,7 @@ const RewardsView = () => {
   const sectionSubtitle =
     SECTION_META[activeFilter]?.subtitle ?? "Unlock rewards by leveling up and keeping streaks.";
 
-  const showEmpty = !loading && !errorMsg && rewards.length === 0;
+  const showEmpty = !loading && rewards.length === 0;
 
   return (
     <View style={styles.container}>
@@ -378,31 +419,11 @@ const RewardsView = () => {
             <View style={{ paddingVertical: theme.spacing.lg }}>
               <ActivityIndicator />
             </View>
-          ) : errorMsg ? (
-            <View style={styles.errorBox}>
-              <AppText color={theme.colors.text.primary} weight="bold">
-                {errorMsg}
-              </AppText>
-
-              <TouchableOpacity
-                style={styles.retryBtn}
-                onPress={() => {
-                  // ✅ retry là hành động chủ động -> call API
-                  hasFetchedRef.current[apiType] = false; // cho phép gọi lại
-                  fetchRoadmap({ isRefresh: false, nextPage: 1 });
-                }}
-                activeOpacity={0.85}
-              >
-                <AppText weight="bold" color="white">
-                  Retry
-                </AppText>
-              </TouchableOpacity>
-            </View>
           ) : showEmpty ? (
             <AppListEmpty
               icon="gift-outline"
-              title="No rewards found"
-              description="Try another category or come back later."
+              title={errorMsg ? "Cannot load rewards" : "No rewards found"}
+              description={errorMsg ? "Pull to refresh or tap Retry." : "Try another category or come back later."}
             />
           ) : (
             <>
@@ -446,6 +467,17 @@ const RewardsView = () => {
           <Ionicons name="chevron-back" size={24} color="white" />
         </TouchableOpacity>
       </Animated.View>
+
+      {/* ✅ Dialog lỗi fetch API giống InventoryView */}
+      <AppDialog
+        visible={dialogConfig.visible}
+        type={dialogConfig.type}
+        title={dialogConfig.title}
+        message={dialogConfig.message}
+        onClose={handleCloseDialog}
+        onConfirm={dialogConfig.onConfirm}
+        confirmText={dialogConfig.confirmText || "Đóng"}
+      />
     </View>
   );
 };
@@ -472,22 +504,6 @@ const styles = StyleSheet.create({
   },
   filterBtnActive: {
     backgroundColor: "white",
-  },
-
-  errorBox: {
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-  },
-  retryBtn: {
-    marginTop: theme.spacing.sm,
-    alignSelf: "flex-start",
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.success,
   },
 
   backButtonWrap: {

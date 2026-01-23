@@ -4,19 +4,22 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
-    Dimensions,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import theme from "../../theme";
 import { AppButton, AppInput, AppText } from "../core";
 import AppDialog, { DialogType } from "../core/AppDialog";
 
+import { guestStore } from "@/storage/guest";
+import { tokenStore } from "@/storage/token";
+import { useProfileStore } from "@/store/useProfileStore";
 import { authApi } from "../../api/auth";
 import { ensureGuestKey } from "../../utils/guest";
 
@@ -43,7 +46,7 @@ const LoginView: React.FC = () => {
   // pending
   const [pendingLogin, setPendingLogin] = useState<boolean>(false);
   const [pendingGuest, setPendingGuest] = useState<boolean>(false);
-  
+
   // Đã xóa state pendingGoogle/Facebook
   const isBusy = pendingLogin || pendingGuest;
 
@@ -54,6 +57,22 @@ const LoginView: React.FC = () => {
     title: "",
     message: "",
   });
+
+  const clearAuthState = async () => {
+    // 1. clear profile/user state
+    useProfileStore.getState().clear();
+    // 2. clear guest
+    try {
+      // nếu không có guestStore thì bỏ dòng này
+      await guestStore.clear?.();
+    } catch { }
+
+    // 3. clear token
+    try {
+      // đổi theo tokenStore của bạn: clear(), reset(), removeTokens()...
+      await tokenStore.clearTokens?.();
+    } catch { }
+  };
 
   const openDialog = (next: Omit<DialogState, "visible">) => {
     setDialog({ ...next, visible: true });
@@ -85,8 +104,8 @@ const LoginView: React.FC = () => {
     if (!password) {
       setPasswordError("Password is required");
       isValid = false;
-    } else if (password.length <= 6) {
-      setPasswordError("Password must be longer than 6 characters");
+    } else if (password.length < 6) {
+      setPasswordError("Password must be at least 6 characters");
       isValid = false;
     } else setPasswordError("");
 
@@ -99,6 +118,7 @@ const LoginView: React.FC = () => {
     if (!validateInputs()) return;
 
     setPendingLogin(true);
+    clearAuthState();
     try {
       await authApi.login({ email, password });
 
@@ -109,8 +129,7 @@ const LoginView: React.FC = () => {
         closeText: "Continue",
       });
     } catch (e: any) {
-      const msg =
-        e?.response?.data?.message || e?.message || "Login thất bại. Vui lòng thử lại.";
+      const msg = e?.userMessage || "Login thất bại. Vui lòng thử lại.";
       openDialog({
         type: "error",
         title: "Login failed",
@@ -127,10 +146,10 @@ const LoginView: React.FC = () => {
     if (isBusy) return;
     console.log("Google login pressed - Logic removed");
     openDialog({
-        type: "info",
-        title: "Google Login",
-        message: "Chức năng đang bảo trì (Logic đã được xóa tạm thời).",
-        closeText: "Đóng"
+      type: "info",
+      title: "Google Login",
+      message: "Chức năng đang bảo trì (Logic đã được xóa tạm thời).",
+      closeText: "Đóng"
     });
   };
 
@@ -139,10 +158,10 @@ const LoginView: React.FC = () => {
     if (isBusy) return;
     console.log("Facebook login pressed - Logic removed");
     openDialog({
-        type: "info",
-        title: "Facebook Login",
-        message: "Chức năng đang bảo trì (Logic đã được xóa tạm thời).",
-        closeText: "Đóng"
+      type: "info",
+      title: "Facebook Login",
+      message: "Chức năng đang bảo trì (Logic đã được xóa tạm thời).",
+      closeText: "Đóng"
     });
   };
 
@@ -159,10 +178,16 @@ const LoginView: React.FC = () => {
       closeText: "Cancel",
       confirmText: "Start",
       onConfirm: async () => {
+        await clearAuthState();
         closeDialog();
         setPendingGuest(true);
         try {
           await ensureGuestKey();
+
+          if (router.canDismiss()) {
+            router.dismissAll();
+          }
+
           router.replace("/tabs/quiz");
         } finally {
           setPendingGuest(false);
