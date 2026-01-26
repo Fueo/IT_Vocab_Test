@@ -75,7 +75,7 @@ export default function RootLayout() {
     <>
       <StatusBar style="light" translucent backgroundColor="transparent" />
 
-      <Stack
+      <Stack initialRouteName="index"
         screenOptions={{
           headerShown: false,
           animation: "none",

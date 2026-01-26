@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 // Imports từ Design System
+import { firstLaunchStore } from '@/storage/firstLaunch';
 import theme from '../../theme';
 import { AppButton, AppText } from '../core';
 import OnboardingItem from './OnboardingItem';
@@ -43,6 +44,11 @@ const slides = [
     }
 ];
 
+async function handleDone() {
+    await firstLaunchStore.markSeenWelcome();
+    router.replace("/auth/login");
+}
+
 const OnboardingView = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const flatListRef = useRef<FlatList>(null);
@@ -51,7 +57,7 @@ const OnboardingView = () => {
         if (currentIndex < slides.length - 1) {
             flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
         } else {
-            router.replace('/auth/login');
+            handleDone();
         }
     };
 
