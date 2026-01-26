@@ -31,7 +31,8 @@ const InventoryDetailPanel: React.FC<InventoryDetailPanelProps> = ({
             color={theme.colors.text.secondary}
             style={{ marginTop: theme.spacing.smd }}
           >
-            Tap on an item to see details
+            {/* ✅ Dịch */}
+            Chạm vào vật phẩm để xem chi tiết
           </AppText>
         </View>
       </View>
@@ -40,17 +41,22 @@ const InventoryDetailPanel: React.FC<InventoryDetailPanelProps> = ({
 
   const isCosmetic = selectedItem.Item.ItemType === "Cosmetic";
 
+  // ✅ Dịch các text hành động
   const actionTitle = isCosmetic
     ? selectedItem.IsActive
-      ? "Unequip"
-      : "Equip"
+      ? "Gỡ bỏ" // Unequip
+      : "Trang bị" // Equip
     : selectedItem.IsActive
-      ? "Active"
-      : "Use Item";
+      ? "Đang dùng" // Active
+      : "Sử dụng"; // Use Item
 
   // Cosmetic: luôn cho bấm (để unequip)
   // Consumable: đang active thì không cho dùng lại
   const actionDisabled = !isCosmetic && selectedItem.IsActive;
+
+  // ✅ Dịch loại vật phẩm hiển thị
+  const displayType =
+    selectedItem.Item.ItemType === "Cosmetic" ? "Trang trí" : "Tiêu hao";
 
   return (
     <View style={styles.detailPanel}>
@@ -67,7 +73,7 @@ const InventoryDetailPanel: React.FC<InventoryDetailPanelProps> = ({
               weight="bold"
               style={{ textTransform: "uppercase" }}
             >
-              {selectedItem.Item.ItemType}
+              {displayType}
             </AppText>
           </View>
 
@@ -99,7 +105,8 @@ const InventoryDetailPanel: React.FC<InventoryDetailPanelProps> = ({
               }
               style={{ marginLeft: theme.spacing.xs }}
             >
-              {selectedItem.IsActive ? "Active" : "Inactive"}
+              {/* ✅ Dịch trạng thái */}
+              {selectedItem.IsActive ? "Đang hoạt động" : "Không hoạt động"}
             </AppText>
           </View>
         </View>
@@ -115,7 +122,8 @@ const InventoryDetailPanel: React.FC<InventoryDetailPanelProps> = ({
         <View style={styles.infoGrid}>
           <View style={styles.infoItem}>
             <AppText size="xs" color={theme.colors.text.secondary}>
-              Quantity
+              {/* ✅ Dịch: Quantity -> Số lượng */}
+              Số lượng
             </AppText>
             <AppText weight="bold" color={theme.colors.text.primary}>
               {selectedItem.Quantity}
@@ -124,11 +132,13 @@ const InventoryDetailPanel: React.FC<InventoryDetailPanelProps> = ({
 
           <View style={styles.infoItem}>
             <AppText size="xs" color={theme.colors.text.secondary}>
-              Duration
+              {/* ✅ Dịch: Duration -> Thời hạn */}
+              Thời hạn
             </AppText>
             <AppText weight="bold" color={theme.colors.text.primary}>
               {(selectedItem.Item.DurationValue ?? 0) > 0
-                ? `${selectedItem.Item.DurationValue} ${selectedItem.Item.DurationType}`
+                ? `${selectedItem.Item.DurationValue} ${selectedItem.Item.DurationType === "Days" ? "Ngày" : "Vĩnh viễn"
+                }`
                 : "∞"}
             </AppText>
           </View>

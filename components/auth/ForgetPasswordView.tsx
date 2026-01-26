@@ -26,15 +26,15 @@ const ForgetPasswordView = () => {
     const handleSendCode = async () => {
         // 1. Validate
         const mailToUse = email.trim();
-        
+
         if (!mailToUse) {
-            setError("Please enter your email address.");
+            setError("Vui lòng nhập địa chỉ email.");
             return;
         }
-        
+
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(mailToUse)) {
-            setError("Invalid email format.");
+            setError("Định dạng email không hợp lệ.");
             return;
         }
 
@@ -53,7 +53,7 @@ const ForgetPasswordView = () => {
             // Truyền email và purpose qua màn hình tiếp theo để verify
             router.replace({
                 pathname: "/auth/verify-code",
-                params: { 
+                params: {
                     email: mailToUse,
                     purpose: "reset_password" // Có thể truyền thêm để màn hình sau biết context
                 }
@@ -61,7 +61,7 @@ const ForgetPasswordView = () => {
 
         } catch (err: any) {
             // ✅ Xử lý lỗi từ Backend hiển thị lên UI
-            const msg = err?.response?.data?.message || err.message || "Failed to send code. Please try again.";
+            const msg = err?.response?.data?.message || err.message || "Gửi mã thất bại. Vui lòng thử lại.";
             setError(msg);
         } finally {
             setIsSending(false);
@@ -70,7 +70,7 @@ const ForgetPasswordView = () => {
 
     return (
         <View style={styles.container}>
-            <AppHeader title="Forgot Password" />
+            <AppHeader title="Quên Mật Khẩu" />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -88,23 +88,23 @@ const ForgetPasswordView = () => {
                     {/* Instruction Text */}
                     <View style={styles.textWrapper}>
                         <AppText size="lg" weight="bold" centered style={{ marginBottom: 8 }}>
-                            Reset your password
+                            Đặt lại mật khẩu
                         </AppText>
                         <AppText size="md" color={theme.colors.text.secondary} centered>
-                            Enter the email address associated with your account and we'll send you a code to reset your password.
+                            Nhập địa chỉ email liên kết với tài khoản của bạn, chúng tôi sẽ gửi mã để đặt lại mật khẩu.
                         </AppText>
                     </View>
 
                     {/* Input Form */}
                     <View style={styles.formContainer}>
                         <AppInput
-                            label="EMAIL ADDRESS"
+                            label="ĐỊA CHỈ EMAIL"
                             value={email}
                             onChangeText={(val) => {
                                 setEmail(val);
                                 setError('');
                             }}
-                            placeholder="Enter your email"
+                            placeholder="Nhập email của bạn"
                             icon="mail-outline"
                             keyboardType="email-address"
                             error={error}
@@ -114,7 +114,7 @@ const ForgetPasswordView = () => {
 
                     {/* Submit Button */}
                     <AppButton
-                        title="Send Code"
+                        title="Gửi Mã"
                         onPress={handleSendCode}
                         isLoading={isSending}
                         disabled={isSending}

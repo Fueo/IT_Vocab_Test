@@ -33,13 +33,13 @@ const VerifyCodeView = () => {
   const params = useLocalSearchParams();
   const email = String(params.email || "");
   // ✅ 1. Lấy purpose từ params (mặc định là signup nếu thiếu)
-  const purpose = (params.purpose as Purpose) || "signup"; 
+  const purpose = (params.purpose as Purpose) || "signup";
 
   const [code, setCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [timer, setTimer] = useState(30);
-  
+
   // ✅ State lưu resetToken tạm thời khi verify thành công (cho luồng forgot password)
   const [resetToken, setResetToken] = useState<string | null>(null);
 
@@ -76,7 +76,7 @@ const VerifyCodeView = () => {
 
   const handleVerify = async () => {
     if (!email) {
-      openDialog({ type: "error", title: "Missing Email", message: "Please go back and try again.", closeText: "OK", onCloseGoBack: true });
+      openDialog({ type: "error", title: "Thiếu Email", message: "Vui lòng quay lại và thử lại.", closeText: "Đồng ý", onCloseGoBack: true });
       return;
     }
     if (code.length !== CODE_LENGTH) return;
@@ -93,21 +93,21 @@ const VerifyCodeView = () => {
 
       openDialog({
         type: "success",
-        title: "Verified!",
-        message: purpose === "signup" 
-            ? "Your email has been verified. You can log in now."
-            : "Code verified. You can now set a new password.",
-        closeText: "Continue",
+        title: "Xác thực thành công!",
+        message: purpose === "signup"
+          ? "Email của bạn đã được xác thực. Bạn có thể đăng nhập ngay."
+          : "Mã đã xác thực. Bây giờ bạn có thể đặt mật khẩu mới.",
+        closeText: "Tiếp tục",
         onCloseGoBack: false,
       });
 
     } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || "OTP not correct.";
+      const msg = e?.response?.data?.message || e?.message || "Mã OTP không chính xác.";
       openDialog({
         type: "error",
-        title: "Verification Failed",
+        title: "Xác thực thất bại",
         message: msg,
-        closeText: "Try Again",
+        closeText: "Thử lại",
         onCloseGoBack: false,
       });
       setCode("");
@@ -128,18 +128,18 @@ const VerifyCodeView = () => {
 
       openDialog({
         type: "success",
-        title: "Code Sent",
-        message: "We sent a new verification code to your email.",
-        closeText: "OK",
+        title: "Đã gửi mã",
+        message: "Chúng tôi đã gửi mã xác thực mới đến email của bạn.",
+        closeText: "Đồng ý",
         onCloseGoBack: false,
       });
     } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.message || "Cannot resend code.";
+      const msg = e?.response?.data?.message || e?.message || "Không thể gửi lại mã.";
       openDialog({
         type: "error",
-        title: "Resend Failed",
+        title: "Gửi lại thất bại",
         message: msg,
-        closeText: "OK",
+        closeText: "Đồng ý",
         onCloseGoBack: false,
       });
     } finally {
@@ -170,19 +170,19 @@ const VerifyCodeView = () => {
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Verification" />
+      <AppHeader title="Xác Thực" />
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <Pressable style={styles.content} onPress={Keyboard.dismiss}>
           <View style={styles.headerText}>
             <AppText size="lg" weight="bold" centered style={{ marginBottom: 8 }}>
-              Enter Verification Code
+              Nhập Mã Xác Thực
             </AppText>
             <AppText size="md" color={theme.colors.text.secondary} centered>
               {/* Có thể chỉnh text tùy purpose nếu muốn */}
-              We have sent a code to{" "}
+              Chúng tôi đã gửi mã đến{" "}
               <AppText weight="bold" color={theme.colors.text.primary}>
-                {email || "your email"}
+                {email || "email của bạn"}
               </AppText>
             </AppText>
           </View>
@@ -213,14 +213,14 @@ const VerifyCodeView = () => {
           <View style={styles.resendContainer}>
             {timer > 0 ? (
               <AppText size="sm" color={theme.colors.text.secondary} centered>
-                Resend code in{" "}
+                Gửi lại mã sau{" "}
                 <AppText weight="bold" color={theme.colors.primary}>
                   {timer}s
                 </AppText>
               </AppText>
             ) : (
               <AppButton
-                title="Resend Code"
+                title="Gửi Lại Mã"
                 variant="link"
                 onPress={handleResend}
                 disabled={isResending}
@@ -231,7 +231,7 @@ const VerifyCodeView = () => {
           </View>
 
           <AppButton
-            title="Verify"
+            title="Xác Thực"
             onPress={handleVerify}
             isLoading={isVerifying}
             disabled={isVerifying || code.length !== CODE_LENGTH}
@@ -245,9 +245,9 @@ const VerifyCodeView = () => {
         type={dialog.type as any}
         title={dialog.title}
         message={dialog.message}
-        closeText={dialog.closeText || "OK"}
+        closeText={dialog.closeText || "Đồng ý"}
         onClose={() => {
-          const isSuccess = dialog.type === "success" && dialog.title === "Verified!";
+          const isSuccess = dialog.type === "success" && dialog.title === "Xác thực thành công!";
           const shouldGoBack = dialog.onCloseGoBack;
 
           closeDialog();
@@ -271,9 +271,9 @@ const VerifyCodeView = () => {
                   params: { resetToken: resetToken }
                 } as any);
               } else {
-                 // Fallback an toàn nếu ko có token (hiếm gặp)
-                 console.error("Missing resetToken");
-                 router.replace("/auth/login" as any);
+                // Fallback an toàn nếu ko có token (hiếm gặp)
+                console.error("Missing resetToken");
+                router.replace("/auth/login" as any);
               }
             }
           }

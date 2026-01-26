@@ -94,18 +94,18 @@ const LoginView: React.FC = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!email) {
-      setEmailError("Email is required");
+      setEmailError("Vui lòng nhập email");
       isValid = false;
     } else if (!emailRegex.test(email)) {
-      setEmailError("Please enter a valid email address");
+      setEmailError("Địa chỉ email không hợp lệ");
       isValid = false;
     } else setEmailError("");
 
     if (!password) {
-      setPasswordError("Password is required");
+      setPasswordError("Vui lòng nhập mật khẩu");
       isValid = false;
     } else if (password.length < 6) {
-      setPasswordError("Password must be at least 6 characters");
+      setPasswordError("Mật khẩu phải có ít nhất 6 ký tự");
       isValid = false;
     } else setPasswordError("");
 
@@ -124,17 +124,17 @@ const LoginView: React.FC = () => {
 
       openDialog({
         type: "success",
-        title: "Login successful",
-        message: "Welcome back!",
-        closeText: "Continue",
+        title: "Đăng nhập thành công",
+        message: "Chào mừng bạn trở lại!",
+        closeText: "Tiếp tục",
       });
     } catch (e: any) {
-      const msg = e?.userMessage || "Login thất bại. Vui lòng thử lại.";
+      const msg = e?.userMessage || "Đăng nhập thất bại. Vui lòng thử lại.";
       openDialog({
         type: "error",
-        title: "Login failed",
+        title: "Đăng nhập thất bại",
         message: msg,
-        closeText: "Try Again",
+        closeText: "Thử lại",
       });
     } finally {
       setPendingLogin(false);
@@ -147,8 +147,8 @@ const LoginView: React.FC = () => {
     console.log("Google login pressed - Logic removed");
     openDialog({
       type: "info",
-      title: "Google Login",
-      message: "Chức năng đang bảo trì (Logic đã được xóa tạm thời).",
+      title: "Đăng nhập Google",
+      message: "Chức năng đang bảo trì.",
       closeText: "Đóng"
     });
   };
@@ -159,8 +159,8 @@ const LoginView: React.FC = () => {
     console.log("Facebook login pressed - Logic removed");
     openDialog({
       type: "info",
-      title: "Facebook Login",
-      message: "Chức năng đang bảo trì (Logic đã được xóa tạm thời).",
+      title: "Đăng nhập Facebook",
+      message: "Chức năng đang bảo trì.",
       closeText: "Đóng"
     });
   };
@@ -173,10 +173,10 @@ const LoginView: React.FC = () => {
 
     openDialog({
       type: "confirm",
-      title: "Continue as Guest?",
-      message: "You can try the app without an account.",
-      closeText: "Cancel",
-      confirmText: "Start",
+      title: "Tiếp tục với vai trò Khách?",
+      message: "Bạn có thể trải nghiệm ứng dụng mà không cần tài khoản. Lưu ý: Tiến trình của bạn sẽ bị mất khi bạn thoát App hoặc đăng nhập tài khoản.",
+      closeText: "Hủy",
+      confirmText: "Bắt đầu",
       onConfirm: async () => {
         await clearAuthState();
         closeDialog();
@@ -220,10 +220,10 @@ const LoginView: React.FC = () => {
               <Ionicons name="code-slash" size={40} color={theme.colors.gradientStart} />
             </View>
             <AppText size="title" weight="bold" style={styles.headerTitle} color="white">
-              Welcome Back!
+              Chào mừng trở lại!
             </AppText>
             <AppText size="sm" color="rgba(255,255,255,0.8)">
-              Log in to continue your learning journey
+              Đăng nhập để tiếp tục hành trình học tập
             </AppText>
           </View>
         </LinearGradient>
@@ -231,7 +231,7 @@ const LoginView: React.FC = () => {
         <View style={styles.formContainer}>
           <AppInput
             label="Email"
-            placeholder="your.email@fpt.edu.vn"
+            placeholder="youremail@gmail.com"
             icon="mail-outline"
             value={email}
             onChangeText={(text: string) => {
@@ -244,8 +244,8 @@ const LoginView: React.FC = () => {
           />
 
           <AppInput
-            label="Password"
-            placeholder="Enter your password"
+            label="Mật khẩu"
+            placeholder="Nhập mật khẩu của bạn"
             icon="lock-closed-outline"
             isPassword={true}
             value={password}
@@ -264,12 +264,12 @@ const LoginView: React.FC = () => {
             disabled={isBusy}
           >
             <AppText size="sm" color={theme.colors.secondary} weight="bold">
-              Forgot password?
+              Quên mật khẩu?
             </AppText>
           </TouchableOpacity>
 
           <AppButton
-            title="Log In"
+            title="Đăng Nhập"
             onPress={handleLogin}
             variant="primary"
             style={styles.loginBtn}
@@ -280,14 +280,14 @@ const LoginView: React.FC = () => {
           <View style={styles.dividerContainer}>
             <View style={styles.line} />
             <AppText size="sm" color={theme.colors.text.secondary} style={styles.orText}>
-              OR
+              HOẶC
             </AppText>
             <View style={styles.line} />
           </View>
 
           {/* UI Nút Google: Giữ nguyên hiển thị, xóa logic disable/loading */}
           <AppButton
-            title="Continue with Google"
+            title="Tiếp tục với Google"
             variant="google"
             onPress={handleGoogleLogin}
             style={styles.socialBtn}
@@ -296,7 +296,7 @@ const LoginView: React.FC = () => {
 
           {/* UI Nút Facebook: Giữ nguyên hiển thị */}
           <AppButton
-            title="Continue with Facebook"
+            title="Tiếp tục với Facebook"
             variant="outline"
             icon="logo-facebook"
             onPress={handleFacebookLogin}
@@ -306,7 +306,7 @@ const LoginView: React.FC = () => {
 
           <View style={styles.footerRow}>
             <AppText size="sm" color={theme.colors.text.secondary}>
-              Don't have an account?
+              Chưa có tài khoản?
             </AppText>
             <TouchableOpacity onPress={handleNavigateRegister} disabled={isBusy}>
               <AppText
@@ -315,7 +315,7 @@ const LoginView: React.FC = () => {
                 weight="bold"
                 style={{ marginLeft: theme.spacing.xs }}
               >
-                Sign Up
+                Đăng Ký
               </AppText>
             </TouchableOpacity>
           </View>
@@ -323,13 +323,13 @@ const LoginView: React.FC = () => {
           <View style={[styles.dividerContainer, { marginTop: theme.spacing.lg }]}>
             <View style={styles.line} />
             <AppText size="xs" color={theme.colors.text.secondary} style={styles.orText}>
-              Quick Start
+              Truy cập nhanh
             </AppText>
             <View style={styles.line} />
           </View>
 
           <AppButton
-            title="Continue as Guest"
+            title="Tiếp tục với vai trò Khách"
             variant="outline"
             icon="person"
             onPress={handleGuestLogin}
@@ -339,7 +339,7 @@ const LoginView: React.FC = () => {
           />
 
           <AppText size="xs" color={theme.colors.text.secondary} centered style={styles.guestSubText}>
-            Try the app without creating an account
+            Thử ứng dụng không cần tạo tài khoản
           </AppText>
         </View>
       </ScrollView>

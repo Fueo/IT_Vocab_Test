@@ -82,6 +82,16 @@ export type TopicQuizItem = {
   level: number;
   title: string;
   mode: "TOPIC";
+
+  // ✅ NEW fields from BE
+  percentCorrect: number; // 0..100
+  xp: number; // totalQuestions * 10 (based on latest attempt), fallback default (10*10)
+  lastAttempt: null | {
+    attemptId: string;
+    totalQuestions: number;
+    correctAnswers: number;
+    finishedAt: string | null;
+  };
 };
 
 export type QuizzesByTopicsRes = {
@@ -117,18 +127,18 @@ export type StartAttemptRes = {
 
 export type GetQuestionByCursorRes =
   | {
-      attempt: AttemptSummary;
-      cursor: number;
-      canPrev: boolean;
-      canNext: boolean;
-      question: QuestionDto;
-    }
+    attempt: AttemptSummary;
+    cursor: number;
+    canPrev: boolean;
+    canNext: boolean;
+    question: QuestionDto;
+  }
   | {
-      message: string;
-      requireNextBatch?: boolean;
-      cursor?: number;
-      totalQuestions?: number;
-    };
+    message: string;
+    requireNextBatch?: boolean;
+    cursor?: number;
+    totalQuestions?: number;
+  };
 
 // =======================
 // Submit & Next
@@ -209,25 +219,25 @@ export type XpMultiplierSource = {
 };
 
 export type XpMeta = {
-  baseXP: number;        // XP trước khi nhân
-  multiplier: number;    // hệ số (1,2,3,...)
-  applied: boolean;      // FE check để show "x2"
+  baseXP: number; // XP trước khi nhân
+  multiplier: number; // hệ số (1,2,3,...)
+  applied: boolean; // FE check để show "x2"
   source: XpMultiplierSource | null;
 };
 
 export type NewReward =
   | {
-      type: "RANK";
-      rankName: string;
-      rankLevel: number;
-      inboxId: string;
-    }
+    type: "RANK";
+    rankName: string;
+    rankLevel: number;
+    inboxId: string;
+  }
   | {
-      type: "STREAK";
-      name: string;
-      dayNumber: number;
-      inboxId: string;
-    };
+    type: "STREAK";
+    name: string;
+    dayNumber: number;
+    inboxId: string;
+  };
 
 export type RankProgress = {
   startEXP: number;
@@ -263,13 +273,13 @@ export type FinishAttemptRes = {
       neededXP: number; // ✅ BE trả neededXP (không phải neededEXP)
     } | null;
     nextRank:
-      | {
-          rankId: string;
-          rankLevel: number;
-          rankName: string;
-          neededXP: number; // ✅ BE trả neededXP
-        }
-      | null;
+    | {
+      rankId: string;
+      rankLevel: number;
+      rankName: string;
+      neededXP: number; // ✅ BE trả neededXP
+    }
+    | null;
   };
 
   rankProgress?: RankProgress;
@@ -366,7 +376,9 @@ export const quizApi = {
 
   // GET /quiz/attempts/:attemptId/questions/:cursor
   getQuestionByCursor(attemptId: string, cursor: number) {
-    return api.get<GetQuestionByCursorRes>(`/quiz/attempts/${attemptId}/questions/${cursor}`).then((r) => r.data);
+    return api
+      .get<GetQuestionByCursorRes>(`/quiz/attempts/${attemptId}/questions/${cursor}`)
+      .then((r) => r.data);
   },
 
   // POST /quiz/attempts/:attemptId/submit

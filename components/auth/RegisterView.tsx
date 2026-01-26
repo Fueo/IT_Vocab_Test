@@ -74,7 +74,7 @@ const RegisterView: React.FC = () => {
     const serverMsg = e?.response?.data?.message;
     if (typeof serverMsg === "string" && serverMsg.trim()) return serverMsg;
     if (typeof e?.message === "string" && e.message.trim()) return e.message;
-    return "Register failed. Please try again.";
+    return "Đăng ký thất bại. Vui lòng thử lại.";
   };
 
   const validateInputs = (): boolean => {
@@ -82,32 +82,32 @@ const RegisterView: React.FC = () => {
     const newErrors: Errors = { fullName: "", email: "", password: "", confirmPassword: "" };
 
     if (!fullName.trim()) {
-      newErrors.fullName = "Full Name is required";
+      newErrors.fullName = "Vui lòng nhập họ tên";
       isValid = false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) {
-      newErrors.email = "Email is required";
+      newErrors.email = "Vui lòng nhập email";
       isValid = false;
     } else if (!emailRegex.test(email)) {
-      newErrors.email = "Invalid email address";
+      newErrors.email = "Địa chỉ email không hợp lệ";
       isValid = false;
     }
 
     if (!password) {
-      newErrors.password = "Password is required";
+      newErrors.password = "Vui lòng nhập mật khẩu";
       isValid = false;
     } else if (password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
+      newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
       isValid = false;
     }
 
     if (!confirmPassword) {
-      newErrors.confirmPassword = "Please confirm your password";
+      newErrors.confirmPassword = "Vui lòng xác nhận mật khẩu";
       isValid = false;
     } else if (confirmPassword !== password) {
-      newErrors.confirmPassword = "Passwords do not match";
+      newErrors.confirmPassword = "Mật khẩu không khớp";
       isValid = false;
     }
 
@@ -115,9 +115,9 @@ const RegisterView: React.FC = () => {
       isValid = false;
       openDialog({
         type: "warning",
-        title: "Agreement Required",
-        message: "Please agree to the Terms & Conditions to continue.",
-        confirmText: "OK",
+        title: "Yêu cầu chấp thuận",
+        message: "Vui lòng đồng ý với Điều khoản & Điều kiện để tiếp tục.",
+        confirmText: "Đồng ý",
         onConfirm: closeDialog,
       });
     }
@@ -146,9 +146,9 @@ const RegisterView: React.FC = () => {
       // 3) Success dialog -> Confirm -> navigate VerifyCode
       openDialog({
         type: "success",
-        title: "Account Created",
-        message: "We sent a verification code to your email. Please verify to activate your account.",
-        confirmText: "Verify Now",
+        title: "Tạo tài khoản thành công",
+        message: "Chúng tôi đã gửi mã xác thực đến email của bạn. Vui lòng xác thực để kích hoạt tài khoản.",
+        confirmText: "Xác thực ngay",
         onConfirm: () => {
           closeDialog();
           router.replace({
@@ -167,9 +167,9 @@ const RegisterView: React.FC = () => {
 
       openDialog({
         type: "error",
-        title: "Register Failed",
+        title: "Đăng ký thất bại",
         message: msg,
-        confirmText: "OK",
+        confirmText: "Đồng ý",
         onConfirm: closeDialog,
       });
     } finally {
@@ -206,7 +206,7 @@ const RegisterView: React.FC = () => {
               <Ionicons name="code-slash" size={40} color={theme.colors.gradientStart} />
             </View>
             <AppText size="title" weight="bold" color="white" style={styles.headerTitle}>
-              Create Account
+              Tạo Tài Khoản
             </AppText>
             <AppText
               size="sm"
@@ -214,15 +214,15 @@ const RegisterView: React.FC = () => {
               centered
               style={{ paddingHorizontal: theme.spacing.xxl }}
             >
-              Join thousands of FPT Poly students learning IT English
+              Tham gia cùng hàng ngàn sinh viên FPT Poly học tiếng Anh IT
             </AppText>
           </View>
         </LinearGradient>
 
         <View style={styles.formContainer}>
           <AppInput
-            label="Full Name"
-            placeholder="Nguyen Van A"
+            label="Họ và tên"
+            placeholder="Nguyễn Văn A"
             icon="person-outline"
             value={fullName}
             onChangeText={(text: string) => {
@@ -236,7 +236,7 @@ const RegisterView: React.FC = () => {
 
           <AppInput
             label="Email"
-            placeholder="your.email@fpt.edu.vn"
+            placeholder="youremail@gmail.com"
             icon="mail-outline"
             value={email}
             onChangeText={(text: string) => {
@@ -249,8 +249,8 @@ const RegisterView: React.FC = () => {
           />
 
           <AppInput
-            label="Password"
-            placeholder="At least 6 characters"
+            label="Mật khẩu"
+            placeholder="Ít nhất 6 ký tự"
             icon="lock-closed-outline"
             isPassword={true}
             value={password}
@@ -264,8 +264,8 @@ const RegisterView: React.FC = () => {
           />
 
           <AppInput
-            label="Confirm Password"
-            placeholder="Re-enter your password"
+            label="Xác nhận mật khẩu"
+            placeholder="Nhập lại mật khẩu"
             icon="lock-closed-outline"
             isPassword={true}
             value={confirmPassword}
@@ -293,52 +293,52 @@ const RegisterView: React.FC = () => {
 
             <View style={styles.policyTextContainer}>
               <AppText size="xs" color={theme.colors.text.secondary}>
-                I agree to the{" "}
+                Tôi đồng ý với{" "}
               </AppText>
 
               <TouchableOpacity
                 onPress={() =>
                   openDialog({
                     type: "info",
-                    title: "Terms & Conditions",
-                    message: "Coming soon.",
-                    confirmText: "OK",
+                    title: "Điều khoản & Điều kiện",
+                    message: "Sắp ra mắt.",
+                    confirmText: "Đồng ý",
                     onConfirm: closeDialog,
                   })
                 }
                 disabled={isRegistering}
               >
                 <AppText size="xs" color={theme.colors.secondary} weight="bold">
-                  Terms & Conditions
+                  Điều khoản & Điều kiện
                 </AppText>
               </TouchableOpacity>
 
               <AppText size="xs" color={theme.colors.text.secondary}>
                 {" "}
-                and{" "}
+                và{" "}
               </AppText>
 
               <TouchableOpacity
                 onPress={() =>
                   openDialog({
                     type: "info",
-                    title: "Privacy Policy",
-                    message: "Coming soon.",
-                    confirmText: "OK",
+                    title: "Chính sách bảo mật",
+                    message: "Sắp ra mắt.",
+                    confirmText: "Đồng ý",
                     onConfirm: closeDialog,
                   })
                 }
                 disabled={isRegistering}
               >
                 <AppText size="xs" color={theme.colors.secondary} weight="bold">
-                  Privacy Policy
+                  Chính sách bảo mật
                 </AppText>
               </TouchableOpacity>
             </View>
           </View>
 
           <AppButton
-            title="Sign Up"
+            title="Đăng Ký"
             onPress={handleRegister}
             variant="primary"
             disabled={!isAgreed || isRegistering}
@@ -352,20 +352,20 @@ const RegisterView: React.FC = () => {
           <View style={styles.dividerContainer}>
             <View style={styles.line} />
             <AppText size="sm" color={theme.colors.text.secondary} style={styles.orText}>
-              OR
+              HOẶC
             </AppText>
             <View style={styles.line} />
           </View>
 
           <AppButton
-            title="Continue with Google"
+            title="Tiếp tục với Google"
             variant="google"
             onPress={() => { }}
             style={styles.socialBtn}
             disabled={isRegistering}
           />
           <AppButton
-            title="Continue with Facebook"
+            title="Tiếp tục với Facebook"
             variant="outline"
             icon="logo-facebook"
             onPress={() => { }}
@@ -375,7 +375,7 @@ const RegisterView: React.FC = () => {
 
           <View style={styles.footerRow}>
             <AppText size="sm" color={theme.colors.text.secondary}>
-              Already have an account?
+              Đã có tài khoản?
             </AppText>
             <TouchableOpacity onPress={handleLoginPress} disabled={isRegistering}>
               <AppText
@@ -384,7 +384,7 @@ const RegisterView: React.FC = () => {
                 weight="bold"
                 style={{ marginLeft: theme.spacing.xs }}
               >
-                Log In
+                Đăng Nhập
               </AppText>
             </TouchableOpacity>
           </View>

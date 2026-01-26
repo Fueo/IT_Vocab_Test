@@ -17,8 +17,9 @@ const ReviewItem: React.FC<ReviewItemProps> = ({ index, question, userAnswer }) 
         <View style={styles.container}>
             {/* Header: Question Number & Status */}
             <View style={styles.header}>
+                {/* ✅ Dịch: Question -> Câu hỏi */}
                 <AppText size="sm" weight="bold" color={theme.colors.text.secondary}>
-                    Question {index + 1}
+                    Câu hỏi {index + 1}
                 </AppText>
                 <View style={styles.statusRow}>
                     <Ionicons
@@ -26,13 +27,14 @@ const ReviewItem: React.FC<ReviewItemProps> = ({ index, question, userAnswer }) 
                         size={18}
                         color={isCorrect ? theme.colors.success : theme.colors.error}
                     />
+                    {/* ✅ Dịch: Correct/Incorrect -> Đúng/Sai */}
                     <AppText
                         size="xs"
                         weight="bold"
                         color={isCorrect ? theme.colors.success : theme.colors.error}
                         style={{ marginLeft: 4 }}
                     >
-                        {isCorrect ? "Correct" : "Incorrect"}
+                        {isCorrect ? "Đúng" : "Sai"}
                     </AppText>
                 </View>
             </View>
@@ -50,19 +52,22 @@ const ReviewItem: React.FC<ReviewItemProps> = ({ index, question, userAnswer }) 
                 styles.box,
                 isCorrect ? styles.correctBox : styles.incorrectBox
             ]}>
+                {/* ✅ Dịch: Your Answer -> Câu trả lời của bạn */}
                 <AppText size="xs" weight="bold" color={isCorrect ? "#15803D" : "#B91C1C"} style={{ marginBottom: 2 }}>
-                    Your Answer:
+                    Câu trả lời của bạn:
                 </AppText>
                 <AppText size="sm" color={theme.colors.text.primary}>
-                    {userAnswer || "No answer selected"}
+                    {/* ✅ Dịch: No answer selected -> Chưa chọn đáp án */}
+                    {userAnswer || "Chưa chọn đáp án"}
                 </AppText>
             </View>
 
             {/* Correct Answer Section (Chỉ hiện nếu sai) */}
             {!isCorrect && (
                 <View style={[styles.box, styles.correctBox]}>
+                    {/* ✅ Dịch: Correct Answer -> Đáp án đúng */}
                     <AppText size="xs" weight="bold" color="#15803D" style={{ marginBottom: 2 }}>
-                        Correct Answer:
+                        Đáp án đúng:
                     </AppText>
                     <AppText size="sm" color={theme.colors.text.primary}>
                         {question.correctAnswer}
@@ -72,8 +77,9 @@ const ReviewItem: React.FC<ReviewItemProps> = ({ index, question, userAnswer }) 
 
             {/* Explanation Section */}
             <View style={[styles.box, styles.explanationBox]}>
+                {/* ✅ Dịch: Explanation -> Giải thích */}
                 <AppText size="xs" weight="bold" color="#1E40AF" style={{ marginBottom: 2 }}>
-                    Explanation:
+                    Giải thích:
                 </AppText>
                 <AppText size="sm" color={theme.colors.text.primary}>
                     {question.explanation}
@@ -83,8 +89,9 @@ const ReviewItem: React.FC<ReviewItemProps> = ({ index, question, userAnswer }) 
             {/* Example Section */}
             {question.example && (
                 <View style={[styles.box, styles.exampleBox]}>
+                    {/* ✅ Dịch: Example -> Ví dụ */}
                     <AppText size="xs" weight="bold" color="#7E22CE" style={{ marginBottom: 2 }}>
-                        Example:
+                        Ví dụ:
                     </AppText>
                     <AppText size="sm" color={theme.colors.text.primary} style={{ fontStyle: 'italic' }}>
                         {question.example}

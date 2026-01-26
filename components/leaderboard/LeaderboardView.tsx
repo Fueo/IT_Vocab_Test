@@ -24,16 +24,22 @@ function tabKeyToApiTab(tab: TabKey): LeaderboardTab {
 }
 
 function mapUserToItem(u: LeaderboardUser, apiTab: LeaderboardTab): LeaderboardItem {
+    // ✅ Logic: API trả về "value": 1. 
+    // Nếu apiTab là 'xp' -> value đó là xp.
+    // Nếu apiTab là 'streak' -> value đó là streak.
+    const rawValue = u.value ?? 0;
+
     return {
         id: String(u.userID),
         rank: u.rank,
         name: u.name ?? "User",
         avatarURL: u.avatarURL ?? null,
 
-        xp: apiTab === "xp" ? u.value : 0,
-        streak: apiTab === "streak" ? u.value : 0,
+        // ✅ SỬA MAPPING Ở ĐÂY:
+        xp: apiTab === "xp" ? rawValue : 0,         // Nếu tab XP thì lấy value, tab kia = 0
+        streak: apiTab === "streak" ? rawValue : 0, // Nếu tab Streak thì lấy value, tab kia = 0
 
-        rankLevel: u.rankLevel ?? null,
+        rankLevel: u.rankLevel ?? 1,
         itemImageURL: u.itemImageURL ?? null,
     };
 }
@@ -172,6 +178,8 @@ const LeaderboardView = () => {
     // ✅ Khi đổi tab: nếu có cache -> set ngay, không fetch; nếu chưa -> fetch 1 lần
     useEffect(() => {
         const cached = cacheRef.current[apiTab];
+
+        // CASE 1: Đã có Cache -> Hiện ngay lập tức
         if (cached && hasFetchedRef.current[apiTab]) {
             setLeaderboardData(cached.list);
             setMyPosition(cached.position);
@@ -182,7 +190,14 @@ const LeaderboardView = () => {
             return;
         }
 
-        // chưa có cache -> gọi 1 lần
+        // CASE 2: Chưa có Cache (Data mới) -> Reset về rỗng để kích hoạt Loading Spinner
+        // 👇 THÊM ĐOẠN NÀY ĐỂ FIX LỖI 👇
+        setLeaderboardData([]);
+        setMyPosition(null);
+        setError(null);
+        // setMyValue(null); // Có thể giữ myValue cũ để thanh bar bên dưới không bị giật, hoặc reset tuỳ ý
+
+        // Gọi API
         fetchLeaderboard({ isRefresh: false });
     }, [apiTab, fetchLeaderboard]);
 
@@ -198,8 +213,8 @@ const LeaderboardView = () => {
         <>
             <View style={styles.headerWrapper}>
                 <HomeHeader
-                    title="Leaderboard"
-                    subtitle={selectedTab === "XP" ? "Top Students by XP" : "Top Study Streaks"}
+                    title="Bảng Xếp Hạng"
+                    subtitle={selectedTab === "XP" ? "Học viên xuất sắc nhất (XP)" : "Chuỗi học tập dài nhất"}
                     rightIcon="trophy"
                     gradientColors={RANK_COLORS.gold.gradient}
                     containerStyle={{ paddingBottom: theme.spacing.lgx }}
@@ -212,8 +227,8 @@ const LeaderboardView = () => {
         </>
     );
 
-    const emptyTitle = error ? "Failed to load leaderboard" : "No data yet";
-    const emptyDesc = error ? "Pull to refresh to try again." : "Pull to refresh.";
+    const emptyTitle = error ? "Lỗi tải bảng xếp hạng" : "Chưa có dữ liệu";
+    const emptyDesc = error ? "Kéo xuống để thử lại." : "Kéo xuống để làm mới.";
     const emptyIcon = error ? "alert-circle-outline" : "trophy-outline";
 
     return (
@@ -242,7 +257,7 @@ const LeaderboardView = () => {
                 selectedTab={selectedTab}
                 position={myPosition}
                 meValue={myValue}
-                displayName={myName ?? "Guest User"}
+                displayName={myName ?? "Khách"}
             />
 
             {/* ✅ Dialog Component */}

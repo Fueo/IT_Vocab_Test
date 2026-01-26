@@ -47,7 +47,7 @@ const ITEMS_PER_PAGE = 5;
 // ===== Helpers =====
 function getTermFromReview(it: ReviewItemDto) {
   const w = it.question?.word;
-  return w?.term || w?.word || w?.meaning || "Question";
+  return w?.term || w?.word || w?.meaning || "Câu hỏi";
 }
 
 function getCorrectAnswerText(it: ReviewItemDto) {
@@ -148,9 +148,9 @@ export default function ReviewAnswersView() {
     const streakCount = newRewards.filter((x) => x?.type === "STREAK").length;
 
     const parts: string[] = [];
-    if (rankCount) parts.push(`${rankCount} Rank`);
-    if (streakCount) parts.push(`${streakCount} Streak`);
-    if (!parts.length) parts.push(`${newRewards.length} Reward`);
+    if (rankCount) parts.push(`${rankCount} Hạng`);
+    if (streakCount) parts.push(`${streakCount} Chuỗi`);
+    if (!parts.length) parts.push(`${newRewards.length} Phần thưởng`);
 
     return parts.join(" • ");
   }, [hasRewards, newRewards]);
@@ -158,7 +158,7 @@ export default function ReviewAnswersView() {
   const xpBoostText = useMemo(() => {
     if (!xpBoostApplied) return "";
     const itemName = xpMeta?.source?.itemName;
-    return itemName ? `XP Boost đang active: x${xpMultiplier} (${itemName})` : `XP Boost đang active: x${xpMultiplier}`;
+    return itemName ? `XP Boost đang bật: x${xpMultiplier} (${itemName})` : `XP Boost đang bật: x${xpMultiplier}`;
   }, [xpBoostApplied, xpMultiplier, xpMeta]);
 
   const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
@@ -191,7 +191,7 @@ export default function ReviewAnswersView() {
   if (!attemptId) {
     return (
       <View style={[styles.container, styles.center]}>
-        <AppText color={theme.colors.text.secondary}>Missing attemptId</AppText>
+        <AppText color={theme.colors.text.secondary}>Thiếu ID lượt thi</AppText>
       </View>
     );
   }
@@ -205,20 +205,20 @@ export default function ReviewAnswersView() {
   }
 
   // subtitle gọn gàng + gắn tag nếu có
-  const subtitleParts = [`${correctCount} correct, ${incorrectCount} incorrect`];
+  const subtitleParts = [`${correctCount} đúng, ${incorrectCount} sai`];
   if (isFullCombo) subtitleParts.push("Full Combo");
   if (xpBoostApplied) subtitleParts.push(`x${xpMultiplier} XP`);
-  if (hasRewards) subtitleParts.push("Rewards");
+  if (hasRewards) subtitleParts.push("Phần thưởng");
 
   return (
     <View style={styles.container}>
-      <DetailHeader title="Review Answers" subtitle={subtitleParts.join(" • ")} />
+      <DetailHeader title="Xem lại đáp án" subtitle={subtitleParts.join(" • ")} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} bounces={false}>
         {/* ✅ meta banners */}
         {isFullCombo ? (
           <AppBanner
-            message={`Full Combo! Bạn đã trả lời đúng ${correctCount}/${totalItems}. Bonus +50 XP đã được tính.`}
+            message={`Full Combo! Bạn trả lời đúng ${correctCount}/${totalItems}. Đã cộng thêm +50 XP thưởng.`}
             variant="success"
             icon="medal"
             containerStyle={styles.bannerMargin}
@@ -249,7 +249,7 @@ export default function ReviewAnswersView() {
         {totalPages > 1 && (
           <View style={styles.paginationWrapper}>
             <AppButton
-              title="Prev"
+              title="Trước"
               variant="outline"
               onPress={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
@@ -264,7 +264,7 @@ export default function ReviewAnswersView() {
             </View>
 
             <AppButton
-              title="Next"
+              title="Sau"
               variant="outline"
               onPress={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}

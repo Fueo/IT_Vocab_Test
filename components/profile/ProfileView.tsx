@@ -234,7 +234,7 @@ const ProfileView = () => {
     );
   }
 
-  const userName = isGuest ? "Guest User" : (profile?.name?.trim() || "User");
+  const userName = isGuest ? "Guest" : (profile?.name?.trim() || "Người dùng");
   const avatarUrl = isGuest ? undefined : (profile?.avatarURL || undefined);
   const streak = isGuest ? 0 : (profile?.currentStreak ?? 0);
   const bestStreak = isGuest ? 0 : (profile?.longestStreak ?? 0);
@@ -271,7 +271,7 @@ const ProfileView = () => {
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
       >
         <HomeHeader
-          title="Profile"
+          title="Hồ Sơ"
           rightIcon="settings-outline"
           onRightIconPress={goSettings}
           showRightIconBackground={false}
@@ -305,19 +305,19 @@ const ProfileView = () => {
 
         <View style={styles.contentSection}>
           <AppText size="lg" weight="bold" color={theme.colors.text.primary} style={styles.sectionTitle}>
-            Statistics
+            Thống kê
           </AppText>
 
           <View style={styles.statsGrid}>
-            <StatCard icon="flame" value={streak} label="Day Streak" iconColor={theme.colors.warning || "#D97706"} />
-            <StatCard icon="trophy" value={bestStreak} label="Best Streak" iconColor={theme.colors.warningLight || "#F59E0B"} />
-            <StatCard icon="layers" value={lessons} label="Lessons Done" iconColor={theme.colors.secondary} />
-            <StatCard icon="bulb" value={words} label="Words Learned" iconColor={theme.colors.warningLight || "#EAB308"} />
+            <StatCard icon="flame" value={streak} label="Streak" iconColor={theme.colors.warning || "#D97706"} />
+            <StatCard icon="trophy" value={bestStreak} label="Streak cao nhất" iconColor={theme.colors.warningLight || "#F59E0B"} />
+            <StatCard icon="layers" value={lessons} label="Quiz đã làm" iconColor={theme.colors.secondary} />
+            <StatCard icon="bulb" value={words} label="Từ đã học" iconColor={theme.colors.warningLight || "#EAB308"} />
           </View>
 
           <View style={styles.infoCard}>
             <View>
-              <AppText size="sm" color={theme.colors.text.secondary}>Overall Accuracy</AppText>
+              <AppText size="sm" color={theme.colors.text.secondary}>Độ chính xác</AppText>
               <AppText size="md" weight="bold" color={theme.colors.secondary} style={styles.infoValue}>{accuracy}</AppText>
             </View>
             <Ionicons name="disc" size={theme.iconSizes.xxl} color={theme.colors.error} />
@@ -327,13 +327,13 @@ const ProfileView = () => {
             <View style={styles.rowCenter}>
               <Ionicons name="calendar-outline" size={theme.iconSizes.lg} color={theme.colors.text.secondary} />
               <View style={styles.infoTextContainer}>
-                <AppText size="xs" color={theme.colors.text.secondary}>Member since</AppText>
+                <AppText size="xs" color={theme.colors.text.secondary}>Tham gia từ</AppText>
                 <AppText size="md" weight="bold" color={theme.colors.text.primary}>{joinDate}</AppText>
               </View>
             </View>
           </View>
 
-          <MenuItem icon="settings-outline" label="Settings" onPress={goSettings} />
+          <MenuItem icon="settings-outline" label="Cài đặt" onPress={goSettings} />
 
           <TouchableOpacity
             style={[
@@ -354,7 +354,7 @@ const ProfileView = () => {
                   style={styles.logoutIcon}
                 />
                 <AppText size="md" weight="bold" color={isGuest ? theme.colors.primary : theme.colors.error}>
-                  {isGuest ? "Log In Now" : "Log Out"}
+                  {isGuest ? "Đăng Nhập Ngay" : "Đăng Xuất"}
                 </AppText>
               </>
             )}

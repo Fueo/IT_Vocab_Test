@@ -24,7 +24,7 @@ const AppListFooter: React.FC<AppListFooterProps> = ({
             ) : (
                 !hasMore && (
                     <AppText size="xs" color={theme.colors.text.secondary} style={styles.endText}>
-                        — End of results —
+                        — Hết danh sách —
                     </AppText>
                 )
             )}

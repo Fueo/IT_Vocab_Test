@@ -65,19 +65,19 @@ const NewPasswordView = () => {
             setDialog({
                 visible: true,
                 type: "error",
-                title: "Error",
-                message: "Missing reset token. Please try again from the start.",
-                closeText: "Go Back",
+                title: "Lỗi",
+                message: "Thiếu mã token đặt lại. Vui lòng thử lại từ đầu.",
+                closeText: "Quay lại",
                 onCloseAction: () => router.back(),
             });
             return;
         }
         if (newPass.length < 6) {
-            newErrors.newPass = "Password must be at least 6 characters.";
+            newErrors.newPass = "Mật khẩu phải có ít nhất 6 ký tự.";
             hasError = true;
         }
         if (newPass !== confirmPass) {
-            newErrors.confirmPass = "Passwords do not match.";
+            newErrors.confirmPass = "Mật khẩu không khớp.";
             hasError = true;
         }
 
@@ -96,21 +96,21 @@ const NewPasswordView = () => {
             setDialog({
                 visible: true,
                 type: "success",
-                title: "Password Reset!",
-                message: "Your password has been changed successfully. Please login with your new password.",
-                closeText: "Login Now",
+                title: "Đặt Lại Mật Khẩu!",
+                message: "Mật khẩu của bạn đã được thay đổi thành công. Vui lòng đăng nhập bằng mật khẩu mới.",
+                closeText: "Đăng Nhập Ngay",
                 onCloseAction: () => router.replace("/auth/login" as any), // Hành động khi bấm nút đóng
             });
 
         } catch (error: any) {
-            const msg = error?.response?.data?.message || error.message || "Failed to reset password.";
+            const msg = error?.response?.data?.message || error.message || "Đặt lại mật khẩu thất bại.";
             // ❌ Error -> Mở Dialog Error
             setDialog({
                 visible: true,
                 type: "error",
-                title: "Reset Failed",
+                title: "Đặt Lại Thất Bại",
                 message: msg,
-                closeText: "Try Again",
+                closeText: "Thử Lại",
                 onCloseAction: undefined, // Không làm gì, chỉ đóng dialog
             });
         } finally {
@@ -120,7 +120,7 @@ const NewPasswordView = () => {
 
     return (
         <View style={styles.container}>
-            <AppHeader title="Reset Password" />
+            <AppHeader title="Đặt Lại Mật Khẩu" />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -138,30 +138,30 @@ const NewPasswordView = () => {
                     {/* Header Text */}
                     <View style={styles.headerText}>
                         <AppText size="lg" weight="bold" centered style={{ marginBottom: 8 }}>
-                            Set new password
+                            Đặt mật khẩu mới
                         </AppText>
                         <AppText size="md" color={theme.colors.text.secondary} centered style={{ lineHeight: 22 }}>
-                            Your new password length must be at least 6 characters.
+                            Mật khẩu mới của bạn phải có độ dài ít nhất 6 ký tự.
                         </AppText>
                     </View>
 
                     {/* Form Input */}
                     <View style={styles.formContainer}>
                         <AppInput
-                            label="NEW PASSWORD"
+                            label="MẬT KHẨU MỚI"
                             value={newPass}
                             onChangeText={(val) => { setNewPass(val); setErrors(p => ({ ...p, newPass: '' })) }}
-                            placeholder="Enter new password"
+                            placeholder="Nhập mật khẩu mới"
                             icon="lock-closed-outline"
                             isPassword={true}
                             error={errors.newPass}
                         />
 
                         <AppInput
-                            label="CONFIRM PASSWORD"
+                            label="XÁC NHẬN MẬT KHẨU"
                             value={confirmPass}
                             onChangeText={(val) => { setConfirmPass(val); setErrors(p => ({ ...p, confirmPass: '' })) }}
-                            placeholder="Re-enter new password"
+                            placeholder="Nhập lại mật khẩu mới"
                             icon="lock-closed-outline"
                             isPassword={true}
                             error={errors.confirmPass}
@@ -170,7 +170,7 @@ const NewPasswordView = () => {
 
                     {/* Action Button */}
                     <AppButton
-                        title="Reset Password"
+                        title="Đặt Lại Mật Khẩu"
                         onPress={handleUpdate}
                         isLoading={isUpdating}
                         disabled={isUpdating}
@@ -187,7 +187,7 @@ const NewPasswordView = () => {
                 type={dialog.type}
                 title={dialog.title}
                 message={dialog.message}
-                closeText={dialog.closeText || "OK"}
+                closeText={dialog.closeText || "Đồng ý"}
                 onClose={closeDialog}
             />
         </View>

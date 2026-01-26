@@ -35,18 +35,18 @@ import { useProfileStore } from "@/store/useProfileStore";
 import AppDialog, { DialogType } from "../core/AppDialog";
 
 const FILTERS: { key: RewardSectionKey; label: string }[] = [
-  { key: "level", label: "Level" },
-  { key: "streak", label: "Streak" },
+  { key: "level", label: "Cấp độ" }, // Đã dịch
+  { key: "streak", label: "Streak" },  // Đã dịch
 ];
 
 const SECTION_META: Record<RewardSectionKey, { title: string; subtitle: string }> = {
   level: {
-    title: "Level Rewards",
-    subtitle: "Unlock rewards when you reach a level milestone.",
+    title: "Quà Cấp Độ",
+    subtitle: "Mở khóa phần thưởng khi bạn đạt cột mốc cấp độ.",
   },
   streak: {
-    title: "Streak Rewards",
-    subtitle: "Keep your streak going to earn streak rewards.",
+    title: "Quà Streak",
+    subtitle: "Duy trì streak ngày học để nhận thưởng.",
   },
 } as any;
 
@@ -97,8 +97,8 @@ function mapMilestoneToReward(m: RoadmapMilestoneDto): Reward {
     return {
       ...common,
       title: titleFromItem || m.name,
-      description: `Reach Level ${m.level} to unlock this reward.`,
-      requirementText: `Reach Level ${m.level}`,
+      description: `Đạt Cấp ${m.level} để mở khóa phần thưởng này.`, // Đã dịch
+      requirementText: `Đạt Cấp ${m.level}`, // Đã dịch
       type: "consumable",
       icon: "trophy-outline",
     };
@@ -107,8 +107,8 @@ function mapMilestoneToReward(m: RoadmapMilestoneDto): Reward {
   return {
     ...common,
     title: titleFromItem || (m as any).title,
-    description: `Maintain ${(m as any).dayNumber}-day streak to unlock this reward.`,
-    requirementText: `Maintain ${(m as any).dayNumber}-day streak`,
+    description: `Duy trì chuỗi ${(m as any).dayNumber} ngày để mở khóa phần thưởng này.`, // Đã dịch
+    requirementText: `Duy trì chuỗi ${(m as any).dayNumber} ngày`, // Đã dịch
     type: "badge",
     icon: "flame-outline",
   };
@@ -247,7 +247,7 @@ const RewardsView = () => {
       hasFetchedRef.current[apiType] = true;
     } catch (e: any) {
       // ✅ giống InventoryView: show dialog lỗi
-      const msg = e?.userMessage || e?.response?.data?.message || "Failed to load rewards.";
+      const msg = e?.userMessage || e?.response?.data?.message || "Không thể tải danh sách quà.";
 
       setErrorMsg(msg);
       setMilestones([]);
@@ -317,7 +317,7 @@ const RewardsView = () => {
       // ✅ claim xong refetch lại đúng trang hiện tại
       await fetchRoadmap({ isRefresh: true, nextPage: page });
     } catch (e: any) {
-      const msg = e?.userMessage || "Claim failed.";
+      const msg = e?.userMessage || "Nhận thưởng thất bại.";
       setDialogConfig({
         visible: true,
         type: "error",
@@ -375,9 +375,9 @@ const RewardsView = () => {
     </View>
   );
 
-  const sectionTitle = SECTION_META[activeFilter]?.title ?? "Rewards";
+  const sectionTitle = SECTION_META[activeFilter]?.title ?? "Phần Thưởng";
   const sectionSubtitle =
-    SECTION_META[activeFilter]?.subtitle ?? "Unlock rewards by leveling up and keeping streaks.";
+    SECTION_META[activeFilter]?.subtitle ?? "Mở khóa phần thưởng bằng cách lên cấp và duy trì streak.";
 
   const showEmpty = !loading && rewards.length === 0;
 
@@ -389,8 +389,8 @@ const RewardsView = () => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onPullRefresh} />}
       >
         <HomeHeader
-          title="Rewards"
-          subtitle="Unlock rewards by leveling up, keeping streaks, and ranking high."
+          title="Phần Thưởng"
+          subtitle="Mở khóa phần thưởng bằng cách lên cấp và duy trì chuỗi ngày."
           rightIcon="gift-outline"
           height={250}
           bottomContent={renderFilters()}
@@ -422,8 +422,8 @@ const RewardsView = () => {
           ) : showEmpty ? (
             <AppListEmpty
               icon="gift-outline"
-              title={errorMsg ? "Cannot load rewards" : "No rewards found"}
-              description={errorMsg ? "Pull to refresh or tap Retry." : "Try another category or come back later."}
+              title={errorMsg ? "Không thể tải phần thưởng" : "Không tìm thấy phần thưởng"}
+              description={errorMsg ? "Kéo để làm mới hoặc nhấn Thử lại." : "Hãy thử danh mục khác hoặc quay lại sau."}
             />
           ) : (
             <>

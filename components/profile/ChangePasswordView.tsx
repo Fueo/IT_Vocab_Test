@@ -53,7 +53,7 @@ const ChangePasswordView = () => {
         const serverMsg = e?.response?.data?.message;
         if (typeof serverMsg === "string" && serverMsg.trim()) return serverMsg;
         if (typeof e?.message === "string" && e.message.trim()) return e.message;
-        return "Failed to update password.";
+        return "Cập nhật mật khẩu thất bại.";
     };
 
     const doRelogin = async () => {
@@ -102,29 +102,29 @@ const ChangePasswordView = () => {
 
         // 1. Check Current Password
         if (!currentPass) {
-            newErrors.currentPass = "Please enter your current password.";
+            newErrors.currentPass = "Vui lòng nhập mật khẩu hiện tại.";
             hasError = true;
         }
 
         // 2. Check New Password
         if (!newPass) {
-            newErrors.newPass = "Please enter a new password.";
+            newErrors.newPass = "Vui lòng nhập mật khẩu mới.";
             hasError = true;
         } else if (newPass.length < 6) {
             // ✅ min 6
-            newErrors.newPass = "Password must be at least 6 characters.";
+            newErrors.newPass = "Mật khẩu phải có ít nhất 6 ký tự.";
             hasError = true;
         } else if (newPass === currentPass) {
-            newErrors.newPass = "New password must be different from current password.";
+            newErrors.newPass = "Mật khẩu mới phải khác mật khẩu hiện tại.";
             hasError = true;
         }
 
         // 3. Check Confirm Password
         if (!confirmPass) {
-            newErrors.confirmPass = "Please confirm your new password.";
+            newErrors.confirmPass = "Vui lòng xác nhận mật khẩu mới.";
             hasError = true;
         } else if (newPass !== confirmPass) {
-            newErrors.confirmPass = "Passwords do not match.";
+            newErrors.confirmPass = "Mật khẩu không khớp.";
             hasError = true;
         }
 
@@ -141,8 +141,8 @@ const ChangePasswordView = () => {
             setDialog({
                 visible: true,
                 type: "success",
-                title: "Password Updated",
-                message: res?.message || "Your password has been changed. Please log in again.",
+                title: "Đã Cập Nhật Mật Khẩu",
+                message: res?.message || "Mật khẩu của bạn đã được thay đổi. Vui lòng đăng nhập lại.",
                 requireRelogin: true,
             });
         } catch (error: any) {
@@ -151,7 +151,7 @@ const ChangePasswordView = () => {
             setDialog({
                 visible: true,
                 type: "error",
-                title: "Update Failed",
+                title: "Cập Nhật Thất Bại",
                 message: msg,
                 requireRelogin: false,
             });
@@ -162,7 +162,7 @@ const ChangePasswordView = () => {
 
     return (
         <View style={styles.container}>
-            <AppDetailHeader title="Change Password" />
+            <AppDetailHeader title="Đổi Mật Khẩu" />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -171,16 +171,16 @@ const ChangePasswordView = () => {
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <AppBanner
                         variant="warning"
-                        message="Make sure your new password is strong and secure."
+                        message="Hãy chắc chắn rằng mật khẩu mới của bạn đủ mạnh và an toàn."
                         containerStyle={{ marginBottom: theme.spacing.lg }}
                     />
 
                     <View style={styles.formContainer}>
                         <AppInput
-                            label="CURRENT PASSWORD"
+                            label="MẬT KHẨU HIỆN TẠI"
                             value={currentPass}
                             onChangeText={(val) => handleChange("currentPass", val)}
-                            placeholder="Enter current password"
+                            placeholder="Nhập mật khẩu hiện tại"
                             icon="lock-closed-outline"
                             isPassword={true}
                             error={errors.currentPass}
@@ -189,20 +189,20 @@ const ChangePasswordView = () => {
                         <View style={styles.divider} />
 
                         <AppInput
-                            label="NEW PASSWORD"
+                            label="MẬT KHẨU MỚI"
                             value={newPass}
                             onChangeText={(val) => handleChange("newPass", val)}
-                            placeholder="Enter new password (min 6 chars)"
+                            placeholder="Nhập mật khẩu mới (ít nhất 6 ký tự)"
                             icon="lock-closed-outline"
                             isPassword={true}
                             error={errors.newPass}
                         />
 
                         <AppInput
-                            label="CONFIRM PASSWORD"
+                            label="XÁC NHẬN MẬT KHẨU"
                             value={confirmPass}
                             onChangeText={(val) => handleChange("confirmPass", val)}
-                            placeholder="Re-enter new password"
+                            placeholder="Nhập lại mật khẩu mới"
                             icon="lock-closed-outline"
                             isPassword={true}
                             error={errors.confirmPass}
@@ -210,7 +210,7 @@ const ChangePasswordView = () => {
                     </View>
 
                     <AppButton
-                        title="Update Password"
+                        title="Cập Nhật Mật Khẩu"
                         onPress={handleUpdate}
                         isLoading={isUpdating}
                         disabled={isUpdating}
@@ -219,7 +219,7 @@ const ChangePasswordView = () => {
                     />
 
                     <AppButton
-                        title="Forgot Password?"
+                        title="Quên Mật Khẩu?"
                         variant="link"
                         onPress={() => router.push("/auth/forgetpassword" as any)}
                     />
@@ -232,8 +232,8 @@ const ChangePasswordView = () => {
                 type={dialog.type}
                 title={dialog.title}
                 message={dialog.message}
-                closeText={dialog.requireRelogin ? "Cancel" : "Close"}
-                confirmText={dialog.requireRelogin ? "Log in again" : undefined}
+                closeText={dialog.requireRelogin ? "Hủy" : "Đóng"}
+                confirmText={dialog.requireRelogin ? "Đăng nhập lại" : undefined}
                 onClose={closeDialog}
                 onConfirm={dialog.requireRelogin ? doRelogin : undefined}
             />

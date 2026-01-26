@@ -50,14 +50,14 @@ const PaginationControl: React.FC<PaginationControlProps> = ({
                     size="sm"
                     color={currentPage === 1 ? theme.colors.text.secondary : theme.colors.text.primary}
                 >
-                    Prev
+                    Trước
                 </AppText>
             </TouchableOpacity>
 
             {/* Text hiển thị số trang */}
             <View style={styles.pageInfo}>
                 <AppText size="sm" color={theme.colors.text.secondary}>
-                    Page <AppText weight="bold" color={theme.colors.primary}>{currentPage}</AppText> of {totalPages}
+                    Trang <AppText weight="bold" color={theme.colors.primary}>{currentPage}</AppText> / {totalPages}
                 </AppText>
             </View>
 
@@ -74,7 +74,7 @@ const PaginationControl: React.FC<PaginationControlProps> = ({
                     size="sm"
                     color={currentPage === totalPages ? theme.colors.text.secondary : theme.colors.text.primary}
                 >
-                    Next
+                    Sau
                 </AppText>
                 <Ionicons
                     name="chevron-forward"

@@ -39,7 +39,7 @@ function parseCourseId(courseId: string) {
 const QuizDetailView = () => {
   const { id, title, fromTab, totalQuestions } = useLocalSearchParams();
 
-  const displayTitle = title ? (Array.isArray(title) ? title[0] : title) : "Course Detail";
+  const displayTitle = title ? (Array.isArray(title) ? title[0] : title) : "Chi tiết khóa học";
   const courseId = id ? (Array.isArray(id) ? id[0] : id) : "default_id";
 
   const source: FromTab = fromTab
@@ -163,11 +163,11 @@ const QuizDetailView = () => {
         setDialogConfig({
           visible: true,
           type: "confirm",
-          title: "Bạn đang làm dở 1 quiz",
+          title: "Bạn đang làm dở 1 bài kiểm tra",
           message:
             data?.message ||
-            "Bạn đang có một quiz đang làm dở. Bạn muốn hủy quiz hiện tại hay làm tiếp?",
-          closeText: "Hủy quiz",
+            "Bạn đang có một bài kiểm tra đang làm dở. Bạn muốn hủy bài hiện tại hay làm tiếp?",
+          closeText: "Hủy bài",
           confirmText: "Làm tiếp",
           disableBackdropClose: true, // không cho bấm nền đóng
           isDestructive: true, // màu confirm type sẽ theo error/primary (tùy theme)
@@ -205,7 +205,7 @@ const QuizDetailView = () => {
                 err?.userMessage ||
                 err?.response?.data?.message ||
                 err?.message ||
-                "Không thể hủy quiz hiện tại. Vui lòng thử lại.";
+                "Không thể hủy bài kiểm tra hiện tại. Vui lòng thử lại.";
 
               setDialogConfig({
                 visible: true,
@@ -246,7 +246,7 @@ const QuizDetailView = () => {
 
   return (
     <View style={styles.container}>
-      <DetailHeader title={displayTitle} subtitle="Choose your learning mode" />
+      <DetailHeader title={displayTitle} subtitle="Chọn chế độ học" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -256,8 +256,8 @@ const QuizDetailView = () => {
         <View style={styles.modesContainer}>
           {showLearningReview && (
             <ModeCard
-              title="Learning Mode"
-              description="Learn new words without pressure. See answers if needed."
+              title="Chế Độ Học"
+              description="Học từ mới không áp lực. Xem đáp án nếu cần."
               icon="book-outline"
               colors={["#4A90E2", "#9013FE"]}
               onPress={() => startQuiz("learning")}
@@ -266,8 +266,8 @@ const QuizDetailView = () => {
 
           {showLearningReview && (
             <ModeCard
-              title="Review Mode"
-              description="Smart spaced repetition. Review words you're forgetting."
+              title="Chế Độ Ôn Tập"
+              description="Ôn tập thông minh. Ôn lại những từ bạn sắp quên."
               icon="sync-outline"
               colors={[theme.colors.gradientStart, theme.colors.gradientEnd]}
               onPress={() => startQuiz("review")}
@@ -276,8 +276,8 @@ const QuizDetailView = () => {
 
           {showRandomEndless && (
             <ModeCard
-              title="Random Challenge"
-              description="Test yourself with random vocabulary from any lesson."
+              title="Thử Thách Ngẫu Nhiên"
+              description="Kiểm tra bản thân với từ vựng ngẫu nhiên từ bất kỳ bài học nào."
               icon="shuffle-outline"
               colors={["#FF9966", "#FF5E62"]}
               onPress={() => startQuiz("random")}
@@ -286,8 +286,8 @@ const QuizDetailView = () => {
 
           {showRandomEndless && (
             <ModeCard
-              title="Endless Challenge"
-              description="Endless questions. The longer you survive, the harder it gets."
+              title="Thử Thách Vô Tận"
+              description="Câu hỏi vô tận. Càng sống sót lâu, càng khó."
               icon="infinite-outline"
               colors={["#FF3B30", "#7A0000"]}
               onPress={() => startQuiz("endless")}
@@ -298,8 +298,8 @@ const QuizDetailView = () => {
         <View style={styles.bannerContainer}>
           <AppBanner
             variant="info"
-            title="Tip: "
-            message="Use Learning Mode for new topics, Review Mode to strengthen memory, and Random Challenge to test your overall knowledge!"
+            title="Mẹo: "
+            message="Sử dụng Chế Độ Học cho chủ đề mới, Chế Độ Ôn Tập để củng cố trí nhớ, và Thử Thách Ngẫu Nhiên để kiểm tra kiến thức tổng quát!"
           />
         </View>
       </ScrollView>

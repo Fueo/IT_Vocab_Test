@@ -116,7 +116,7 @@ function mapApiToUIItem(x: ApiInvItem): InventoryItem {
 
     Item: {
       ItemID: String((x as any).itemId),
-      ItemName: String((x as any).itemName ?? "Unknown Item"),
+      ItemName: String((x as any).itemName ?? "Vật phẩm lạ"), // Đã dịch
       ItemImageURL: (x as any).itemImageURL ?? null,
       ItemType: isSkin ? "Cosmetic" : "Consumable",
 
@@ -180,7 +180,7 @@ const InventoryView = () => {
       visible: true,
       type: "confirm",
       title: "Đăng nhập ngay?",
-      message: "Bạn cần đăng nhập để sử dụng chức năng Inventory.",
+      message: "Bạn cần đăng nhập để sử dụng chức năng Túi đồ.",
       closeText: "Để sau",
       confirmText: "Đăng nhập",
       isDestructive: false,
@@ -265,7 +265,7 @@ const InventoryView = () => {
 
       return { mapped, pagination: res.pagination };
     } catch (e: any) {
-      const msg = e?.userMessage || "Failed to load inventory.";
+      const msg = e?.userMessage || "Không thể tải túi đồ.";
       setDialogConfig({
         visible: true,
         type: "error",
@@ -384,8 +384,8 @@ const InventoryView = () => {
         setDialogConfig({
           visible: true,
           type: "success",
-          title: "Unequipped",
-          message: `You unequipped ${selectedItem.Item.ItemName}.`,
+          title: "Đã gỡ bỏ",
+          message: `Bạn đã gỡ bỏ ${selectedItem.Item.ItemName}.`,
           confirmText: "Đóng",
         });
 
@@ -399,13 +399,13 @@ const InventoryView = () => {
 
       const msg =
         res?.result?.type === "SKIN"
-          ? `You have equipped ${selectedItem.Item.ItemName}!`
-          : `You used ${selectedItem.Item.ItemName}.`;
+          ? `Bạn đã trang bị ${selectedItem.Item.ItemName}!`
+          : `Bạn đã sử dụng ${selectedItem.Item.ItemName}.`;
 
       setDialogConfig({
         visible: true,
         type: "success",
-        title: "Success",
+        title: "Thành công",
         message: msg,
         confirmText: "Đóng",
       });
@@ -413,7 +413,7 @@ const InventoryView = () => {
       await fetchPage(currentPage, { refreshing: true });
       await refreshProfileIfLoggedIn();
     } catch (e: any) {
-      const errorMsg = e?.userMessage || (isCosmetic ? "Action failed." : "Use item failed.");
+      const errorMsg = e?.userMessage || (isCosmetic ? "Thao tác thất bại." : "Sử dụng thất bại.");
 
       setDialogConfig({
         visible: true,
@@ -443,7 +443,7 @@ const InventoryView = () => {
           keyboardShouldPersistTaps="handled"
         >
           <HomeHeader
-            title="Inventory"
+            title="Túi Đồ"
             subtitle="Đăng nhập để xem vật phẩm"
             rightIcon="filter"
             onRightIconPress={() => { }}
@@ -455,7 +455,7 @@ const InventoryView = () => {
             </AppText>
 
             <AppText size="sm" color={theme.colors.text.secondary} style={{ textAlign: "center", marginTop: 8 }}>
-              Inventory sẽ lưu trữ vật phẩm của bạn và cho phép trang bị / sử dụng.
+              Túi đồ sẽ lưu trữ vật phẩm của bạn và cho phép trang bị / sử dụng.
             </AppText>
 
             <AppButton
@@ -495,7 +495,7 @@ const InventoryView = () => {
           alwaysBounceVertical
           overScrollMode="always"
         >
-          <HomeHeader title="Inventory" subtitle="Loading..." rightIcon="filter" onRightIconPress={() => { }} />
+          <HomeHeader title="Túi Đồ" subtitle="Đang tải..." rightIcon="filter" onRightIconPress={() => { }} />
           <View style={[styles.lockWrap, { paddingHorizontal: SCREEN_PADDING }]}>
             <AppText size="sm" color={theme.colors.text.secondary} style={{ textAlign: "center" }}>
               Đang kiểm tra đăng nhập...
@@ -521,8 +521,8 @@ const InventoryView = () => {
         keyboardShouldPersistTaps="handled"
       >
         <HomeHeader
-          title="Inventory"
-          subtitle={`Storage: ${totalItems} Items`}
+          title="Túi Đồ"
+          subtitle={`Kho: ${totalItems} vật phẩm`}
           rightIcon="filter"
           onRightIconPress={() => console.log("Filter pressed")}
         />

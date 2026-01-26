@@ -48,7 +48,7 @@ const StickyRankBar: React.FC<Props> = ({
 
                 <View style={styles.itemContent}>
                     <AppText weight="bold" color="white" size="md">
-                        Your Position
+                        Vị trí của bạn
                     </AppText>
                     <AppText size="xs" color="rgba(255,255,255,0.8)">
                         {displayName ?? "Guest User"}

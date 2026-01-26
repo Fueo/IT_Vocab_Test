@@ -249,11 +249,11 @@ const QuizGameView = () => {
         router.back(); // Fallback an toàn
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || "Không thể hủy quiz.";
+      const msg = err?.response?.data?.message || err?.message || "Không thể hủy bài kiểm tra.";
       closeDialog();
       openDialog({
         type: "error",
-        title: "Hủy quiz thất bại",
+        title: "Hủy thất bại",
         message: msg,
         closeText: "Về trang chủ",
         onConfirm: () => {
@@ -285,7 +285,7 @@ const QuizGameView = () => {
       if (!dialog.visible && !abandoning) {
         openDialog({
           type: "confirm",
-          title: "Thoát quiz?",
+          title: "Thoát bài kiểm tra?",
           message: "Tiến trình hiện tại sẽ bị hủy.",
           closeText: "Ở lại",
           confirmText: "Thoát & Hủy",
@@ -300,7 +300,7 @@ const QuizGameView = () => {
 
   const termText = useMemo(() => {
     if (!question) return "";
-    return "Question";
+    return "Câu hỏi";
   }, [question]);
 
   const promptText = useMemo(() => (question ? question.content : ""), [question]);
@@ -361,20 +361,20 @@ const QuizGameView = () => {
     correctOptionId?: string | null,
     correctAnswers?: string[] | null
   ) => {
-    if (isCorrect) return "Correct! 🎉";
+    if (isCorrect) return "Chính xác! 🎉";
 
     if (q.questionType === "FILL_BLANK") {
       const ans = (correctAnswers || []).filter(Boolean);
-      if (ans.length) return `Correct answer: ${ans.join(" / ")}`;
-      return "Incorrect.";
+      if (ans.length) return `Đáp án đúng: ${ans.join(" / ")}`;
+      return "Chưa chính xác.";
     }
 
     if (correctOptionId) {
       const opt = q.options.find((o) => String(o._id) === String(correctOptionId));
-      if (opt?.content) return `Correct answer: ${opt.content}`;
+      if (opt?.content) return `Đáp án đúng: ${opt.content}`;
     }
 
-    return "Incorrect.";
+    return "Chưa chính xác.";
   };
 
   const handleCheck = async () => {
@@ -417,7 +417,7 @@ const QuizGameView = () => {
         type: "error",
         title: "Lỗi",
         message: e?.response?.data?.message || e?.message || "Không thể gửi đáp án.",
-        closeText: "OK",
+        closeText: "Đồng ý",
       });
     } finally {
       setLoading(false);
@@ -522,7 +522,7 @@ const QuizGameView = () => {
         type: "error",
         title: "Lỗi",
         message: e?.response?.data?.message || e?.message || "Không thể lấy đáp án.",
-        closeText: "OK",
+        closeText: "Đồng ý",
       });
     } finally {
       setLoading(false);
@@ -550,7 +550,7 @@ const QuizGameView = () => {
         attemptId,
         correct: String(correctCount),
         total: String(total || cursor + 1),
-        courseTitle: asString(params.title) || "Quiz",
+        courseTitle: asString(params.title) || "Bài kiểm tra",
       },
     });
   };
@@ -558,7 +558,7 @@ const QuizGameView = () => {
   if (!attemptId) {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <AppText color={theme.colors.text.secondary}>Missing attemptId</AppText>
+        <AppText color={theme.colors.text.secondary}>Thiếu ID lượt thi</AppText>
       </View>
     );
   }
@@ -574,10 +574,10 @@ const QuizGameView = () => {
   if (!question) {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <AppText color={theme.colors.text.secondary}>No question</AppText>
+        <AppText color={theme.colors.text.secondary}>Không có câu hỏi</AppText>
         {/* Lỗi thì cho thoát luôn */}
         <AppButton
-          title="Back"
+          title="Quay lại"
           onPress={() => {
             shouldAllowLeaveRef.current = true;
             router.back();
@@ -606,7 +606,7 @@ const QuizGameView = () => {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.questionHeaderRow}>
             <AppText size="xs" color={theme.colors.text.secondary} style={styles.label}>
-              LEARN THIS WORD
+              HỌC TỪ VỰNG NÀY
             </AppText>
 
             {isLearningMode && !!hintText && (
@@ -621,7 +621,7 @@ const QuizGameView = () => {
                   color={theme.colors.secondary}
                 />
                 <AppText size="sm" weight="bold" color={theme.colors.secondary} style={styles.hintText}>
-                  {showHint ? "Hide Hint" : "Hint"}
+                  {showHint ? "Ẩn gợi ý" : "Gợi ý"}
                 </AppText>
               </TouchableOpacity>
             )}
@@ -646,7 +646,7 @@ const QuizGameView = () => {
             <AppBanner
               variant="info"
               icon="bulb"
-              title="Hint: "
+              title="Gợi ý: "
               message={hintText}
               containerStyle={styles.hintBanner}
             />
@@ -679,7 +679,7 @@ const QuizGameView = () => {
           {question.questionType === "FILL_BLANK" && (
             <View style={{ marginTop: theme.spacing.sm }}>
               <AppText size="sm" color={theme.colors.text.secondary} style={{ marginBottom: theme.spacing.sm }}>
-                Type your answer (A-Z, 0-9 only):
+                Nhập đáp án (chỉ dùng A-Z, 0-9):
               </AppText>
 
               <FillBlankCellsInput
@@ -711,7 +711,7 @@ const QuizGameView = () => {
             <View style={styles.buttonRow}>
               {isLearningMode && (
                 <AppButton
-                  title="See Answer"
+                  title="Xem đáp án"
                   onPress={handleSeeAnswer}
                   variant="outline"
                   style={styles.halfButton}
@@ -721,7 +721,7 @@ const QuizGameView = () => {
               )}
 
               <AppButton
-                title="Check Answer"
+                title="Kiểm tra"
                 onPress={handleCheck}
                 variant="primary"
                 disabled={

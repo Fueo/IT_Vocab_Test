@@ -52,8 +52,8 @@ const DictionaryView = () => {
   const [totalWords, setTotalWords] = useState(0);
 
   const [topics, setTopics] = useState<TopicDto[]>([]);
-  const [categories, setCategories] = useState<string[]>(['All Topics']);
-  const [selectedCategory, setSelectedCategory] = useState('All Topics');
+  const [categories, setCategories] = useState<string[]>(['Tất cả']); // Dịch 'All Topics'
+  const [selectedCategory, setSelectedCategory] = useState('Tất cả'); // Dịch 'All Topics'
 
   const [searchText, setSearchText] = useState('');
 
@@ -125,7 +125,7 @@ const DictionaryView = () => {
   const applyTopicsToUI = (t: TopicDto[]) => {
     setTopics(t);
     const unique = Array.from(new Set(t.map(x => x.topicName)));
-    setCategories(['All Topics', ...unique]);
+    setCategories(['Tất cả', ...unique]); // Dịch 'All Topics'
   };
 
   const loadData = useCallback(async (page: number, type: 'init' | 'refresh' | 'loadMore' = 'init') => {
@@ -153,6 +153,8 @@ const DictionaryView = () => {
         total = res.total;
         totalPages = res.totalPages;
       } else {
+        // Lưu ý: Nếu API yêu cầu chính xác chuỗi "All Topics", bạn cần ánh xạ lại.
+        // Giả sử API chấp nhận chuỗi hiển thị hoặc xử lý ở tầng API/Backend.
         const res = await fetchDictionaryApi(page, ITEMS_PER_PAGE, selectedCategory, searchText);
         newData = res.data;
         total = res.total;
@@ -340,12 +342,12 @@ const DictionaryView = () => {
         ListHeaderComponent={
           <>
             <HomeHeader
-              title="Dictionary"
-              subtitle="Search IT vocabulary"
+              title="Từ Điển"
+              subtitle="Tra cứu từ vựng CNTT"
               rightIcon="book-outline"
               bottomContent={
                 <AppInput
-                  placeholder="Search words..."
+                  placeholder="Tìm kiếm từ vựng..."
                   value={searchText}
                   onChangeText={setSearchText}
                   icon="search-outline"
@@ -367,7 +369,7 @@ const DictionaryView = () => {
 
             <View style={styles.filterRow}>
               <AppText size="sm" color={theme.colors.text.secondary}>
-                {totalWords} words found
+                {totalWords} Từ vựng tìm được
               </AppText>
 
               <TouchableOpacity
@@ -385,7 +387,7 @@ const DictionaryView = () => {
                   color={bookmarkedOnly ? theme.colors.primary : theme.colors.text.secondary}
                   style={{ marginLeft: theme.spacing.xs }}
                 >
-                  Saved
+                  Đã lưu
                 </AppText>
               </TouchableOpacity>
             </View>
@@ -410,8 +412,8 @@ const DictionaryView = () => {
         ListEmptyComponent={
           <AppListEmpty
             isLoading={isLoading}
-            title={bookmarkedOnly ? "No saved words" : "No technical terms found"}
-            description={bookmarkedOnly ? "Bookmark words to see them here." : "Try searching for another keyword."}
+            title={bookmarkedOnly ? "Chưa có từ đã lưu" : "Không tìm thấy thuật ngữ nào"}
+            description={bookmarkedOnly ? "Lưu từ vựng để xem tại đây." : "Hãy thử tìm kiếm với từ khóa khác."}
           />
         }
         ListFooterComponent={

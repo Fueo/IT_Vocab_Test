@@ -16,7 +16,8 @@ const ReviewStats: React.FC<ReviewStatsProps> = ({ correct, incorrect }) => {
             <View style={[styles.card, styles.correctCard]}>
                 <View style={styles.row}>
                     <Ionicons name="checkmark-circle-outline" size={20} color="#15803D" />
-                    <AppText size="sm" weight="bold" color="#15803D" style={{ marginLeft: 4 }}>Correct</AppText>
+                    {/* ✅ Dịch: Correct -> Đúng */}
+                    <AppText size="sm" weight="bold" color="#15803D" style={{ marginLeft: 4 }}>Đúng</AppText>
                 </View>
                 <AppText size="title" weight="bold" color="#15803D">{correct}</AppText>
             </View>
@@ -25,7 +26,8 @@ const ReviewStats: React.FC<ReviewStatsProps> = ({ correct, incorrect }) => {
             <View style={[styles.card, styles.incorrectCard]}>
                 <View style={styles.row}>
                     <Ionicons name="close-circle-outline" size={20} color="#B91C1C" />
-                    <AppText size="sm" weight="bold" color="#B91C1C" style={{ marginLeft: 4 }}>Incorrect</AppText>
+                    {/* ✅ Dịch: Incorrect -> Sai */}
+                    <AppText size="sm" weight="bold" color="#B91C1C" style={{ marginLeft: 4 }}>Sai</AppText>
                 </View>
                 <AppText size="title" weight="bold" color="#B91C1C">{incorrect}</AppText>
             </View>

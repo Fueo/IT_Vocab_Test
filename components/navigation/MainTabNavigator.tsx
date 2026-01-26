@@ -39,7 +39,7 @@ const MainTabNavigator = () => {
             <Tabs.Screen
                 name="quiz" // Tên file là quiz.tsx
                 options={{
-                    title: 'Learn',
+                    title: 'Quiz',
                     tabBarIcon: ({ color, focused }) => (
                         <TabBarIcon name="home" color={color} focused={focused} />
                     ),
@@ -50,7 +50,7 @@ const MainTabNavigator = () => {
             <Tabs.Screen
                 name="dictionary"
                 options={{
-                    title: 'Dictionary',
+                    title: 'Từ điển',
                     tabBarIcon: ({ color, focused }) => (
                         <TabBarIcon name="book" color={color} focused={focused} />
                     ),
@@ -61,7 +61,7 @@ const MainTabNavigator = () => {
             <Tabs.Screen
                 name="leaderboard"
                 options={{
-                    title: 'Leaderboard',
+                    title: 'Bảng xếp hạng',
                     tabBarIcon: ({ color, focused }) => (
                         <TabBarIcon name="trophy" color={color} focused={focused} />
                     ),
@@ -72,7 +72,7 @@ const MainTabNavigator = () => {
             <Tabs.Screen
                 name="inventory"
                 options={{
-                    title: 'inventory',
+                    title: 'Kho đồ',
                     tabBarIcon: ({ color, focused }) => (
                         <TabBarIcon name="bag-handle" color={color} focused={focused} />
                     ),
@@ -83,7 +83,7 @@ const MainTabNavigator = () => {
             <Tabs.Screen
                 name="profile"
                 options={{
-                    title: 'Profile',
+                    title: 'Hồ sơ',
                     tabBarIcon: ({ color, focused }) => (
                         <TabBarIcon name="person" color={color} focused={focused} />
                     ),

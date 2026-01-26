@@ -74,32 +74,32 @@ const SettingView = () => {
 
     return (
         <View style={styles.container}>
-            <AppHeader title="Settings" />
+            <AppHeader title="Cài Đặt" />
 
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
                 {/* --- SECTION 1: PREFERENCES --- */}
-                <SectionContainer title="Preferences">
+                <SectionContainer title="Tùy chọn">
                     <ToggleItem
                         icon="notifications-outline"
-                        title="Push Notifications"
-                        subtitle="Get reminders to practice"
+                        title="Thông báo"
+                        subtitle="Nhận nhắc nhở luyện tập"
                         value={isPushEnabled}
                         onToggle={togglePush}
                     />
                     <ToggleItem
                         icon="volume-high-outline"
-                        title="Sound Effects"
-                        subtitle="Play sounds for answers"
+                        title="Hiệu ứng âm thanh"
+                        subtitle="Phát âm thanh khi trả lời"
                         value={isSoundEnabled}
                         onToggle={toggleSound}
                     />
                     <ToggleItem
                         icon="moon-outline"
-                        title="Dark Mode"
-                        subtitle="Switch to dark theme"
+                        title="Giao diện tối"
+                        subtitle="Chuyển sang giao diện tối"
                         value={isDarkMode}
                         onToggle={toggleDarkMode}
                         showDivider={false}
@@ -108,19 +108,19 @@ const SettingView = () => {
 
                 {/* ✅ SECTION 2: ACCOUNT - Chỉ hiện khi ĐÃ ĐĂNG NHẬP */}
                 {isLoggedIn && (
-                    <SectionContainer title="Account">
+                    <SectionContainer title="Tài khoản">
                         <MenuItem
                             icon="person-outline"
-                            label="Edit Profile"
-                            subtitle="Update name, email, avatar"
+                            label="Chỉnh sửa hồ sơ"
+                            subtitle="Cập nhật tên, SĐT, ảnh đại diện"
                             onPress={() => handleNavigation('edit')}
                             showBorder={false}
                             showDivider={true}
                         />
                         <MenuItem
                             icon="lock-closed-outline"
-                            label="Change Password"
-                            subtitle="Update your security"
+                            label="Đổi mật khẩu"
+                            subtitle="Cập nhật bảo mật"
                             onPress={() => handleNavigation('changepassword')}
                             showBorder={false}
                             showDivider={false}
@@ -129,13 +129,13 @@ const SettingView = () => {
                 )}
 
                 {/* --- SECTION 3: SUPPORT --- */}
-                <SectionContainer title="Support">
+                <SectionContainer title="Hỗ trợ">
                     {/* ✅ FEEDBACK - Chỉ hiện khi ĐÃ ĐĂNG NHẬP */}
                     {isLoggedIn && (
                         <MenuItem
                             icon="chatbox-ellipses-outline"
-                            label="Feedback"
-                            subtitle="Share your thoughts & bug reports"
+                            label="Phản hồi"
+                            subtitle="Chia sẻ ý kiến & báo lỗi"
                             onPress={() => router.replace('/feedback/homepage')}
                             showBorder={false}
                             showDivider={true}
@@ -144,23 +144,23 @@ const SettingView = () => {
 
                     <MenuItem
                         icon="help-circle-outline"
-                        label="Help Center"
-                        subtitle="Get answers to your questions"
+                        label="Trung tâm trợ giúp"
+                        subtitle="Giải đáp thắc mắc của bạn"
                         // onPress={() => handleNavigation('HelpCenter')}
                         showBorder={false}
                         showDivider={true}
                     />
                     <MenuItem
                         icon="document-text-outline"
-                        label="Terms of Service"
-                        subtitle="Read our terms"
+                        label="Điều khoản dịch vụ"
+                        subtitle="Đọc điều khoản của chúng tôi"
                         // onPress={() => handleNavigation('Terms')}
                         showBorder={false}
                         showDivider={true}
                     />
                     <MenuItem
                         icon="mail-outline"
-                        label="Contact Us"
+                        label="Liên hệ"
                         subtitle="support@itvocabtest.com"
                         // onPress={() => handleNavigation('Contact')}
                         showBorder={false}
@@ -174,10 +174,10 @@ const SettingView = () => {
                         IT Vocab Test
                     </AppText>
                     <AppText size="xs" color={theme.colors.text.secondary} centered style={{ marginBottom: 4 }}>
-                        Version 1.0.0
+                        Phiên bản 1.0.0
                     </AppText>
                     <AppText size="xs" color={theme.colors.text.secondary} centered>
-                        Made with ❤️ by Npm Run Dev team.
+                        Được làm với ❤️ bởi nhóm Npm Run Dev.
                     </AppText>
                 </View>
 

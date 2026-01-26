@@ -47,7 +47,7 @@ export default function QuizResultView() {
   const patchFromFinish = useProfileStore((s) => s.patchFromFinish);
 
   const attemptId = asString((params as any).attemptId || (params as any).id);
-  const courseTitle = asString((params as any).courseTitle) || "Course";
+  const courseTitle = asString((params as any).courseTitle) || "Khóa học";
 
   const [correctCount, setCorrectCount] = useState<number>(Number(asString((params as any).correct)) || 0);
   const [totalCount, setTotalCount] = useState<number>(() => {
@@ -133,25 +133,25 @@ export default function QuizResultView() {
             lastStudyDate: res.user.lastStudyDate ?? null,
             currentRank: res?.rank?.currentRank
               ? {
-                  rankLevel: Number(res.rank.currentRank.rankLevel ?? 0),
-                  rankName: String(res.rank.currentRank.rankName ?? ""),
-                }
+                rankLevel: Number(res.rank.currentRank.rankLevel ?? 0),
+                rankName: String(res.rank.currentRank.rankName ?? ""),
+              }
               : null,
             nextRank: res?.rank?.nextRank
               ? {
-                  neededXP: Number(res.rank.nextRank.neededXP ?? 0),
-                  remainingXP: Number(res.rank.nextRank.remainingXP ?? 0),
-                }
+                neededXP: Number(res.rank.nextRank.neededXP ?? 0),
+                remainingXP: Number(res.rank.nextRank.remainingXP ?? 0),
+              }
               : null,
           });
         }
       } catch (e: any) {
-        const msg = e?.response?.data?.message || e?.message || "Không thể finish quiz.";
+        const msg = e?.response?.data?.message || e?.message || "Không thể hoàn thành bài kiểm tra.";
         openDialog({
           type: "error",
-          title: "Finish thất bại",
+          title: "Lỗi hoàn thành",
           message: msg,
-          closeText: "OK",
+          closeText: "Đồng ý",
         });
       } finally {
         setFinishing(false);
@@ -167,9 +167,9 @@ export default function QuizResultView() {
   }, [correctCount, totalCount]);
 
   const isSuccess = accuracy >= 50;
-  const title = isSuccess ? "Excellent Job!" : "Keep Practicing!";
-  const subtitle = isSuccess ? `${courseTitle} completed successfully` : `${courseTitle} completed`;
-  const message = isSuccess ? "You're doing great! Keep pushing your limits." : "Don't give up! Every attempt makes you better.";
+  const title = isSuccess ? "Làm tốt lắm!" : "Cần cố gắng hơn!";
+  const subtitle = isSuccess ? `${courseTitle} hoàn thành xuất sắc` : `${courseTitle} đã hoàn thành`;
+  const message = isSuccess ? "Bạn đang làm rất tốt! Hãy tiếp tục bức phá." : "Đừng bỏ cuộc! Mỗi lần thử đều giúp bạn tiến bộ hơn.";
 
   // ✅ derived flags
   const isFullCombo = totalCount > 0 && correctCount === totalCount;
@@ -187,9 +187,9 @@ export default function QuizResultView() {
     const streakCount = rewardsArr.filter((x) => x?.type === "STREAK").length;
 
     const parts: string[] = [];
-    if (rankCount) parts.push(`${rankCount} Rank`);
-    if (streakCount) parts.push(`${streakCount} Streak`);
-    if (!parts.length) parts.push(`${rewardsArr.length} Reward`);
+    if (rankCount) parts.push(`${rankCount} Hạng`);
+    if (streakCount) parts.push(`${streakCount} Chuỗi`);
+    if (!parts.length) parts.push(`${rewardsArr.length} Phần thưởng`);
 
     return parts.join(" • ");
   }, [hasRewards, rewardsArr]);
@@ -197,7 +197,7 @@ export default function QuizResultView() {
   const xpBoostText = useMemo(() => {
     if (!xpBoostApplied) return "";
     const itemName = xpMeta?.source?.itemName;
-    return itemName ? `XP Boost đang active: x${xpMultiplier} (${itemName})` : `XP Boost đang active: x${xpMultiplier}`;
+    return itemName ? `XP Boost đang bật: x${xpMultiplier} (${itemName})` : `XP Boost đang bật: x${xpMultiplier}`;
   }, [xpBoostApplied, xpMultiplier, xpMeta]);
 
   return (
@@ -210,9 +210,9 @@ export default function QuizResultView() {
         ) : null}
 
         <View style={styles.statsContainer}>
-          <StatCard label="Accuracy" value={`${accuracy}%`} icon="radio-button-on" iconColor={theme.colors.secondary} />
+          <StatCard label="Độ chính xác" value={`${accuracy}%`} icon="radio-button-on" iconColor={theme.colors.secondary} />
           <StatCard
-            label="Correct"
+            label="Câu đúng"
             value={`${correctCount}/${totalCount}`}
             icon="trophy-outline"
             iconColor={theme.colors.success}
@@ -221,7 +221,7 @@ export default function QuizResultView() {
 
         <View style={styles.statsContainer}>
           <StatCard
-            label="XP Earned"
+            label="XP Nhận được"
             value={`+${earnedDisplay}`}
             icon="sparkles-outline"
             iconColor={theme.colors.warning || "#D97706"}
@@ -231,7 +231,7 @@ export default function QuizResultView() {
         {/* ✅ Full combo */}
         {isFullCombo ? (
           <AppBanner
-            message={`Full Combo! Bạn đã trả lời đúng ${correctCount}/${totalCount}. Bonus +50 XP đã được tính.`}
+            message={`Full Combo! Bạn trả lời đúng ${correctCount}/${totalCount}. Đã cộng thêm +50 XP thưởng.`}
             variant="success"
             icon="medal"
             containerStyle={styles.bannerMargin}
@@ -264,15 +264,15 @@ export default function QuizResultView() {
         {xpMeta ? (
           <View style={styles.metaBox}>
             <AppText size="xs" color={theme.colors.text.secondary}>
-              Base XP: {Math.max(0, Number(xpMeta.baseXP ?? 0))}{" "}
-              {xpBoostApplied ? `• Multiplier: x${xpMultiplier} • Applied: yes` : `• Applied: no`}
+              XP Gốc: {Math.max(0, Number(xpMeta.baseXP ?? 0))}{" "}
+              {xpBoostApplied ? `• Hệ số: x${xpMultiplier} • Đã áp dụng: có` : `• Đã áp dụng: không`}
             </AppText>
           </View>
         ) : null}
 
         <View style={styles.actionsContainer}>
           <AppButton
-            title="Review Answers"
+            title="Xem lại đáp án"
             variant="outline"
             onPress={() =>
               router.push({
@@ -292,10 +292,10 @@ export default function QuizResultView() {
             disabled={!attemptId || finishing}
           />
 
-          <AppButton title="Try Again" variant="primary" onPress={() => router.back()} icon="refresh" style={styles.actionMargin} />
+          <AppButton title="Làm lại" variant="primary" onPress={() => router.back()} icon="refresh" style={styles.actionMargin} />
 
           <AppButton
-            title="Back to Home"
+            title="Về trang chủ"
             variant="outline"
             onPress={() => router.navigate("/tabs/quiz" as any)}
             icon="home-outline"
@@ -309,7 +309,7 @@ export default function QuizResultView() {
         type={dialog.type}
         title={dialog.title}
         message={dialog.message}
-        closeText={dialog.closeText || "OK"}
+        closeText={dialog.closeText || "Đồng ý"}
         onClose={closeDialog}
       />
     </>

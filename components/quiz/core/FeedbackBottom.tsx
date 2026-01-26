@@ -21,7 +21,9 @@ const FeedbackBottom: React.FC<FeedbackBottomProps> = ({
 }) => {
     const bgColor = isCorrect ? '#dcfce7' : '#fee2e2'; // Xanh nhạt / Đỏ nhạt
     const titleColor = isCorrect ? theme.colors.success : theme.colors.error;
-    const titleText = isCorrect ? 'Excellent!' : 'Incorrect';
+
+    // ✅ Dịch tiêu đề phản hồi
+    const titleText = isCorrect ? 'Tuyệt vời!' : 'Chưa chính xác';
     const iconName = isCorrect ? 'checkmark-circle' : 'close-circle';
 
     return (
@@ -41,7 +43,8 @@ const FeedbackBottom: React.FC<FeedbackBottomProps> = ({
 
             <AppButton
                 // [CẬP NHẬT] Đổi text nút dựa trên isLastQuestion
-                title={isLastQuestion ? "Complete" : "Continue"}
+                // ✅ Dịch nút bấm
+                title={isLastQuestion ? "Hoàn thành" : "Tiếp tục"}
                 onPress={onContinue}
                 variant="primary"
                 style={styles.btn}

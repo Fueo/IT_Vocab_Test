@@ -83,9 +83,9 @@ const FeedbackFormView = () => {
         color: string;
         bgColor: string;
     }[] = [
-            { id: "bug", label: "Report Bug", icon: "alert-circle", color: "#DC2626", bgColor: "#FEE2E2" },
-            { id: "suggestion", label: "Suggestion", icon: "chatbubble-ellipses", color: "#2563EB", bgColor: "#EFF6FF" },
-            { id: "general", label: "General", icon: "paper-plane", color: "#16A34A", bgColor: "#DCFCE7" },
+            { id: "bug", label: "Báo lỗi", icon: "alert-circle", color: "#DC2626", bgColor: "#FEE2E2" },
+            { id: "suggestion", label: "Góp ý", icon: "chatbubble-ellipses", color: "#2563EB", bgColor: "#EFF6FF" },
+            { id: "general", label: "Chung", icon: "paper-plane", color: "#16A34A", bgColor: "#DCFCE7" },
         ];
 
     // --- 1. Load Data (Nếu có ID) ---
@@ -111,9 +111,9 @@ const FeedbackFormView = () => {
                         setDialogConfig({
                             visible: true,
                             type: "error",
-                            title: "Error",
-                            message: "Feedback not found.",
-                            confirmText: "Back",
+                            title: "Lỗi",
+                            message: "Không tìm thấy phản hồi.",
+                            confirmText: "Quay lại",
                             onConfirm: () => {
                                 setDialogConfig((p) => ({ ...p, visible: false, onConfirm: undefined }));
                                 router.back();
@@ -150,9 +150,9 @@ const FeedbackFormView = () => {
                                             setDialogConfig({
                                                 visible: true,
                                                 type: "error",
-                                                title: "Error",
-                                                message: "Feedback not found.",
-                                                confirmText: "Back",
+                                                title: "Lỗi",
+                                                message: "Không tìm thấy phản hồi.",
+                                                confirmText: "Quay lại",
                                                 onConfirm: () => {
                                                     setDialogConfig((p) => ({ ...p, visible: false, onConfirm: undefined }));
                                                     router.back();
@@ -192,11 +192,11 @@ const FeedbackFormView = () => {
         let hasError = false;
 
         if (!title.trim()) {
-            newErrors.title = "Please enter a title.";
+            newErrors.title = "Vui lòng nhập tiêu đề.";
             hasError = true;
         }
         if (!content.trim()) {
-            newErrors.content = "Please enter content.";
+            newErrors.content = "Vui lòng nhập nội dung.";
             hasError = true;
         }
 
@@ -219,9 +219,9 @@ const FeedbackFormView = () => {
                         setDialogConfig({
                             visible: true,
                             type: "success",
-                            title: "Updated",
-                            message: "Your feedback has been updated successfully.",
-                            confirmText: "OK",
+                            title: "Đã cập nhật",
+                            message: "Phản hồi của bạn đã được cập nhật thành công.",
+                            confirmText: "Đồng ý",
                             onConfirm: () => {
                                 setDialogConfig((p) => ({ ...p, visible: false, onConfirm: undefined }));
                                 router.back();
@@ -237,9 +237,9 @@ const FeedbackFormView = () => {
                         setDialogConfig({
                             visible: true,
                             type: "success",
-                            title: "Thank You",
-                            message: "We have received your feedback!",
-                            confirmText: "OK",
+                            title: "Cảm ơn",
+                            message: "Chúng tôi đã nhận được phản hồi của bạn!",
+                            confirmText: "Đồng ý",
                             onConfirm: () => {
                                 setDialogConfig((p) => ({ ...p, visible: false, onConfirm: undefined }));
                                 router.back();
@@ -252,7 +252,7 @@ const FeedbackFormView = () => {
                     setDialogConfig({
                         visible: true,
                         type: "error",
-                        title: "Error",
+                        title: "Lỗi",
                         message: msg,
                         confirmText: "Đóng",
                         onConfirm: () => setDialogConfig((prev) => ({ ...prev, visible: false, onConfirm: undefined })),
@@ -267,14 +267,14 @@ const FeedbackFormView = () => {
 
     return (
         <View style={styles.container}>
-            <AppDetailHeader title={isEditMode ? "Feedback Details" : "Send Feedback"} />
+            <AppDetailHeader title={isEditMode ? "Chi Tiết Phản Hồi" : "Gửi Phản Hồi"} />
 
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
                 <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                         {/* --- 1. REASON --- */}
                         <AppText size="md" weight="bold" style={styles.sectionTitle}>
-                            Reason
+                            Lý do
                         </AppText>
                         <View style={styles.typeContainer}>
                             {FEEDBACK_OPTIONS.map((option) => {
@@ -327,12 +327,12 @@ const FeedbackFormView = () => {
                         {/* --- 2. TITLE --- */}
                         <View style={styles.inputSection}>
                             <AppText size="md" weight="bold" style={styles.sectionTitle}>
-                                Title
+                                Tiêu đề
                             </AppText>
                             <AppInput
                                 value={title}
                                 onChangeText={(val) => handleChange("title", val)}
-                                placeholder="Briefly summarize your feedback..."
+                                placeholder="Tóm tắt ngắn gọn phản hồi của bạn..."
                                 icon="text-outline"
                                 error={errors.title}
                                 editable={isEditable}
@@ -342,12 +342,12 @@ const FeedbackFormView = () => {
                         {/* --- 3. CONTENT --- */}
                         <View style={styles.inputSection}>
                             <AppText size="md" weight="bold" style={styles.sectionTitle}>
-                                Content
+                                Nội dung
                             </AppText>
                             <AppInput
                                 value={content}
                                 onChangeText={(val) => handleChange("content", val)}
-                                placeholder="Tell us what's on your mind..."
+                                placeholder="Chia sẻ ý kiến của bạn với chúng tôi..."
                                 multiline={true}
                                 numberOfLines={6}
                                 style={{ maxHeight: 150 }}
@@ -358,7 +358,7 @@ const FeedbackFormView = () => {
 
                         {/* --- 4. Send Button --- */}
                         <AppButton
-                            title={!isEditable ? "Read Only" : isEditMode ? "Update Feedback" : "Send Feedback"}
+                            title={!isEditable ? "Chỉ Xem" : isEditMode ? "Cập Nhật Phản Hồi" : "Gửi Phản Hồi"}
                             onPress={handleSend}
                             isLoading={isSending}
                             disabled={isSending || !isEditable}
@@ -371,8 +371,8 @@ const FeedbackFormView = () => {
                         {/* --- 5. Note --- */}
                         <AppBanner
                             variant="warning"
-                            title="Note: "
-                            message="For urgent issues, please contact us at support@itvocabmaster.com"
+                            title="Lưu ý: "
+                            message="Đối với các vấn đề khẩn cấp, vui lòng liên hệ chúng tôi qua support@itvocabmaster.com"
                             icon="bulb"
                         />
                     </ScrollView>

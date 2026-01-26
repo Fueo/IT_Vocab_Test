@@ -1,8 +1,9 @@
 // src/components/quiz/core/HomeLevelCard.tsx
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient"; // ✅ Import Gradient
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Animated, Easing, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import AppDialog, { DialogType } from "@/components/core/AppDialog";
 import { guestStore } from "@/storage/guest";
@@ -17,6 +18,7 @@ type HomeLevelCardProps = {
   nextRank: NextRankInfo | null;
 };
 
+// ... giữ nguyên các hàm clamp, pickNeededXP, pickRemainingXP ...
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
 function pickNeededXP(nextRank: any): number {
@@ -35,7 +37,6 @@ function pickRemainingXP(nextRank: any, neededXP: number, currentXP: number): nu
 const HomeLevelCard: React.FC<HomeLevelCardProps> = ({ currentXP, currentRank, nextRank }) => {
   const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
 
-  // ✅ Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
     visible: boolean;
     type: DialogType;
@@ -48,7 +49,6 @@ const HomeLevelCard: React.FC<HomeLevelCardProps> = ({ currentXP, currentRank, n
     message: "",
   });
 
-  // ✅ Check token -> xác định login hay chưa
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -67,14 +67,11 @@ const HomeLevelCard: React.FC<HomeLevelCardProps> = ({ currentXP, currentRank, n
   }, []);
 
   const computed = useMemo(() => {
-    const rankName = currentRank?.rankName ?? `Rank ${currentRank?.rankLevel ?? 1}`;
+    const rankName = currentRank?.rankName ?? `Hạng ${currentRank?.rankLevel ?? 1}`;
     const safeCurrent = Math.max(0, Number(currentXP || 0));
-
     const neededXP = pickNeededXP(nextRank);
     const isMax = !nextRank || neededXP <= 0;
-
     const pct = !isMax && neededXP > 0 ? (safeCurrent / neededXP) * 100 : 100;
-
     const remainingXP = isMax ? 0 : pickRemainingXP(nextRank, neededXP, safeCurrent);
 
     return {
@@ -87,17 +84,19 @@ const HomeLevelCard: React.FC<HomeLevelCardProps> = ({ currentXP, currentRank, n
     };
   }, [currentXP, currentRank, nextRank]);
 
-  // ===== Animated progress =====
+  // ===== ✅ UPDATED: Smooth Animation =====
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const to = isAuthed ? computed.progressPct : 0;
+
     Animated.timing(progressAnim, {
       toValue: to,
-      duration: 650,
+      duration: 1000, // Tăng thời gian lên 1s cho mượt
+      easing: Easing.out(Easing.cubic), // ✅ Hiệu ứng chậm dần về cuối (tự nhiên hơn)
       useNativeDriver: false,
     }).start();
-  }, [computed.progressPct, progressAnim, isAuthed]);
+  }, [computed.progressPct, isAuthed]); // Chỉ chạy lại khi % thay đổi thực sự
 
   const progressWidth = progressAnim.interpolate({
     inputRange: [0, 100],
@@ -109,12 +108,11 @@ const HomeLevelCard: React.FC<HomeLevelCardProps> = ({ currentXP, currentRank, n
   };
 
   const handleGoLogin = () => {
-    // mở confirm trước, ok mới clear guest + navigate
     setConfirmDialog({
       visible: true,
       type: "confirm",
       title: "Đăng nhập để mở khóa",
-      message: "Bạn cần đăng nhập để xem Level/XP và nhận phần thưởng. Chuyển tới màn hình đăng nhập ngay?",
+      message: "Bạn cần đăng nhập để xem Cấp độ/XP và nhận phần thưởng. Chuyển tới màn hình đăng nhập ngay?",
     });
   };
 
@@ -127,31 +125,38 @@ const HomeLevelCard: React.FC<HomeLevelCardProps> = ({ currentXP, currentRank, n
     router.replace("/auth/login");
   };
 
-  // ✅ Loading token -> tránh flicker
+  // --- Render Helpers ---
+
+  // ✅ Component thanh Progress Bar mới với Gradient
+  const renderProgressBar = () => (
+    <View style={styles.progressBarBg}>
+      <Animated.View style={[styles.progressBarFillWrapper, { width: progressWidth }]}>
+        <LinearGradient
+          // Màu Gradient vàng cam sang trọng (giống màu Rank Vàng)
+          colors={["#FFD200", "#F7971E"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.gradientFill}
+        />
+      </Animated.View>
+    </View>
+  );
+
   if (isAuthed === null) {
     return (
       <View style={styles.levelCard}>
         <View style={styles.levelRow}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="star" size={20} color="white" />
-          </View>
+          <View style={[styles.iconCircle, styles.skeletonIcon]} />
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <AppText size="sm" color={theme.colors.text.primary} weight="bold">
-              Level Progress
-            </AppText>
-            <AppText size="xs" color={theme.colors.text.secondary}>
-              Loading...
-            </AppText>
+            <AppText size="sm" color={theme.colors.text.primary} weight="bold">Tiến độ cấp độ</AppText>
+            <AppText size="xs" color={theme.colors.text.secondary}>Đang tải...</AppText>
           </View>
         </View>
-        <View style={styles.progressBarBg}>
-          <Animated.View style={[styles.progressBarFill, { width: "0%" }]} />
-        </View>
+        {renderProgressBar()}
       </View>
     );
   }
 
-  // ✅ NOT LOGGED IN UI (gợi ý đăng nhập + confirm dialog)
   if (!isAuthed) {
     return (
       <>
@@ -160,38 +165,21 @@ const HomeLevelCard: React.FC<HomeLevelCardProps> = ({ currentXP, currentRank, n
             <View style={[styles.iconCircle, { backgroundColor: theme.colors.primary }]}>
               <Ionicons name="lock-closed" size={20} color="white" />
             </View>
-
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <AppText size="sm" color={theme.colors.text.primary} weight="bold">
-                Unlock Level & Rewards
-              </AppText>
-              <AppText size="xs" color={theme.colors.text.secondary}>
-                Đăng nhập để theo dõi level, XP và nhận phần thưởng.
-              </AppText>
+              <AppText size="sm" color={theme.colors.text.primary} weight="bold">Mở khóa Cấp độ</AppText>
+              <AppText size="xs" color={theme.colors.text.secondary}>Đăng nhập để xem XP</AppText>
             </View>
-
             <View style={{ alignItems: "flex-end" }}>
-              <AppText size="sm" color={theme.colors.primary} weight="bold">
-                Login
-              </AppText>
-              <AppText size="xs" color={theme.colors.text.secondary}>
-                to continue
-              </AppText>
+              <AppText size="sm" color={theme.colors.primary} weight="bold">Đăng nhập</AppText>
             </View>
           </View>
 
-          <View style={styles.progressBarBg}>
-            <Animated.View style={[styles.progressBarFill, { width: "0%" }]} />
-          </View>
+          {renderProgressBar()}
 
           <View style={styles.hintRow}>
-            <Ionicons
-              name="information-circle-outline"
-              size={16}
-              color={theme.colors.text.secondary}
-            />
+            <Ionicons name="information-circle-outline" size={16} color={theme.colors.text.secondary} />
             <AppText size="xs" color={theme.colors.text.secondary} style={{ marginLeft: 6 }}>
-              Tip: XP/Rank sẽ được lưu và đồng bộ khi bạn đăng nhập.
+              Mẹo: Dữ liệu sẽ được đồng bộ khi đăng nhập.
             </AppText>
           </View>
         </TouchableOpacity>
@@ -205,7 +193,6 @@ const HomeLevelCard: React.FC<HomeLevelCardProps> = ({ currentXP, currentRank, n
           confirmText="Đăng nhập"
           onClose={closeConfirm}
           onConfirm={confirmGoLogin}
-          // 2 nút Cancel + Confirm
           onlyConfirm={false}
         />
       </>
@@ -216,6 +203,7 @@ const HomeLevelCard: React.FC<HomeLevelCardProps> = ({ currentXP, currentRank, n
   return (
     <View style={styles.levelCard}>
       <View style={styles.levelRow}>
+        {/* Icon ngôi sao có viền nhẹ */}
         <View style={styles.iconCircle}>
           <Ionicons name="star" size={20} color="white" />
         </View>
@@ -226,12 +214,10 @@ const HomeLevelCard: React.FC<HomeLevelCardProps> = ({ currentXP, currentRank, n
           </AppText>
 
           {computed.isMax ? (
-            <AppText size="xs" color={theme.colors.text.secondary}>
-              {computed.currentXP} XP
-            </AppText>
+            <AppText size="xs" color={theme.colors.text.secondary}>{computed.currentXP} XP</AppText>
           ) : (
             <AppText size="xs" color={theme.colors.text.secondary}>
-              {computed.currentXP} / {computed.targetXP} XP
+              <AppText weight="bold" color={theme.colors.primary}>{computed.currentXP}</AppText> / {computed.targetXP} XP
             </AppText>
           )}
         </View>
@@ -239,29 +225,20 @@ const HomeLevelCard: React.FC<HomeLevelCardProps> = ({ currentXP, currentRank, n
         <View style={{ alignItems: "flex-end" }}>
           {computed.isMax ? (
             <>
-              <AppText size="lg" color={theme.colors.primary} weight="bold">
-                MAX
-              </AppText>
-              <AppText size="xs" color={theme.colors.text.secondary}>
-                level reached
-              </AppText>
+              <AppText size="lg" color={theme.colors.primary} weight="bold">MAX</AppText>
             </>
           ) : (
             <>
               <AppText size="lg" color={theme.colors.primary} weight="bold">
                 +{computed.remainingXP}
               </AppText>
-              <AppText size="xs" color={theme.colors.text.secondary}>
-                to level up
-              </AppText>
+              <AppText size="xs" color={theme.colors.text.secondary}>để lên cấp</AppText>
             </>
           )}
         </View>
       </View>
 
-      <View style={styles.progressBarBg}>
-        <Animated.View style={[styles.progressBarFill, { width: progressWidth }]} />
-      </View>
+      {renderProgressBar()}
     </View>
   );
 };
@@ -271,35 +248,53 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 20,
     padding: 16,
+    // Shadow mềm mại hơn
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
     elevation: 4,
+    marginBottom: 16, // Thêm khoảng cách nếu cần
   },
   levelRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16, // Tăng khoảng cách title và bar
   },
   iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FFC107",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#FFC107", // Màu vàng ngôi sao
     justifyContent: "center",
     alignItems: "center",
+    // Bóng cho icon
+    shadowColor: "#FFC107",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  skeletonIcon: {
+    backgroundColor: "#E5E7EB",
+    elevation: 0,
+    shadowOpacity: 0,
   },
   progressBarBg: {
-    height: 8,
+    height: 10, // Dày hơn chút
     backgroundColor: "#F3F4F6",
-    borderRadius: 4,
+    borderRadius: 5,
     width: "100%",
     overflow: "hidden",
   },
-  progressBarFill: {
+  progressBarFillWrapper: {
     height: "100%",
-    backgroundColor: "#111827",
+    borderRadius: 5,
+    overflow: 'hidden', // Bo góc cho cả gradient bên trong
+  },
+  gradientFill: {
+    width: "100%",
+    height: "100%",
   },
   hintRow: {
     marginTop: 12,

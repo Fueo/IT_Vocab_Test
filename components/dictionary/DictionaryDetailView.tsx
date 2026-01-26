@@ -25,12 +25,12 @@ export interface DictionaryDetailData {
     topicName: string;
     level: string;
     wordLevel?: number;
-    definitionEN: string; 
+    definitionEN: string;
     definitionVN: string;
     example: string;
     notes?: string;
     // 👇 UPDATE: Thêm trường này để biết trạng thái đã lưu hay chưa từ API
-    isPinned?: boolean; 
+    isPinned?: boolean;
 }
 
 const DictionaryDetailView = () => {
@@ -81,8 +81,8 @@ const DictionaryDetailView = () => {
             id: w._id,
             term: w.word,
             phonetic: w.pronunciation || '',
-            topicId: w.topicId, 
-            topicName: w.topicName || 'General', 
+            topicId: w.topicId,
+            topicName: w.topicName || 'General',
             level: levelStr,
             wordLevel: w.level,
             definitionEN: w.meaningEN || '',
@@ -90,7 +90,7 @@ const DictionaryDetailView = () => {
             example: w.example || '',
             notes: w.note || '',
             // 👇 UPDATE: Map isPinned từ API (Giả sử API trả về field này)
-            isPinned: w.isPinned || false, 
+            isPinned: w.isPinned || false,
         };
     };
 
@@ -102,20 +102,20 @@ const DictionaryDetailView = () => {
             try {
                 const res = await dictionaryApi.getWordDetail(id);
                 const mappedData = mapWordToDetail(res.word);
-                
+
                 setData(mappedData);
                 setNoteText(mappedData.notes || '');
-                setIsEnglish(true); 
+                setIsEnglish(true);
 
                 // 👇 UPDATE: Cập nhật state bookmarks nếu từ này đã được ghim
                 if (mappedData.isPinned) {
                     setBookmarks(prev => new Set(prev).add(mappedData.id));
                 }
-                
+
                 fetchRelatedWords(mappedData.topicId, mappedData.id, mappedData.topicName);
             } catch (err) {
                 console.error(err);
-                setError("Could not load word details.");
+                setError("Không thể tải chi tiết từ vựng.");
             } finally {
                 setIsLoading(false);
             }
@@ -130,7 +130,7 @@ const DictionaryDetailView = () => {
             const res = await dictionaryApi.listWords({
                 topicId: topicId,
                 page: 1,
-                pageSize: 6 
+                pageSize: 6
             });
 
             const related = (res.items || [])
@@ -147,9 +147,9 @@ const DictionaryDetailView = () => {
                         term: item.term,
                         phonetic: item.phonetic,
                         topicId: topicId,
-                        topicName: topicName, 
+                        topicName: topicName,
                         level: typeof item.level === 'string' ? item.level : 'beginner',
-                        definitionEN: item.definition, 
+                        definitionEN: item.definition,
                         definitionVN: "",
                         example: item.example || '',
                         isPinned: item.isPinned || false
@@ -211,9 +211,9 @@ const DictionaryDetailView = () => {
 
     const handleRequestEditNote = () => {
         requireAuth(
-            router, 
-            setDialogConfig, 
-            () => setIsEditingNote(true), 
+            router,
+            setDialogConfig,
+            () => setIsEditingNote(true),
             { message: 'Bạn cần đăng nhập để sử dụng tính năng Ghi chú cá nhân.' }
         );
     };
@@ -230,7 +230,7 @@ const DictionaryDetailView = () => {
                 type: 'success',
                 title: 'Thành công',
                 message: 'Ghi chú đã được lưu.',
-                onConfirm: undefined, 
+                onConfirm: undefined,
                 confirmText: undefined
             });
         } catch (error) {
@@ -276,7 +276,7 @@ const DictionaryDetailView = () => {
     const renderHeaderRight = () => {
         if (!data) return null;
         const isBookmarked = bookmarks.has(data.id);
-        
+
         return (
             <TouchableOpacity onPress={() => toggleBookmark(data.id)}>
                 <Ionicons
@@ -299,10 +299,10 @@ const DictionaryDetailView = () => {
     if (error || !data) {
         return (
             <View style={[styles.container, styles.center]}>
-                <AppText color={theme.colors.error}>{error || "Word not found"}</AppText>
-                <AppButton 
-                    title="Go Back" 
-                    onPress={() => router.back()} 
+                <AppText color={theme.colors.error}>{error || "Không tìm thấy từ vựng"}</AppText>
+                <AppButton
+                    title="Quay lại"
+                    onPress={() => router.back()}
                     variant="outline"
                     style={{ marginTop: 20 }}
                 />
@@ -310,15 +310,15 @@ const DictionaryDetailView = () => {
         );
     }
 
-    const currentDefinition = isEnglish 
-        ? (data.definitionEN || "No English definition available.")
+    const currentDefinition = isEnglish
+        ? (data.definitionEN || "Chưa có định nghĩa tiếng Anh.")
         : (data.definitionVN || "Chưa có định nghĩa tiếng Việt.");
 
     return (
         <View style={styles.container}>
             {/* 👇 UPDATE: Truyền nút Bookmark vào prop rightContent */}
-            <AppDetailHeader 
-                title="Word Details" 
+            <AppDetailHeader
+                title="Chi tiết từ vựng"
                 rightContent={renderHeaderRight()}
             />
 
@@ -330,7 +330,7 @@ const DictionaryDetailView = () => {
                 <WordInfoCard
                     term={data.term}
                     phonetic={data.phonetic}
-                    category={data.topicName} 
+                    category={data.topicName}
                     level={data.level}
                 />
 
@@ -338,21 +338,21 @@ const DictionaryDetailView = () => {
                 <View style={styles.definitionWrapper}>
                     <View style={styles.definitionHeader}>
                         <AppText size="md" weight="bold" color={theme.colors.text.primary}>
-                            Definition
+                            Định nghĩa
                         </AppText>
-                        
-                        <TouchableOpacity 
-                            style={styles.langToggle} 
+
+                        <TouchableOpacity
+                            style={styles.langToggle}
                             onPress={() => setIsEnglish(!isEnglish)}
                             activeOpacity={0.7}
                         >
                             <AppText size="xs" weight="bold" color={theme.colors.primary}>
                                 {isEnglish ? "VN   🇻🇳" : "EN   🇬🇧"}
                             </AppText>
-                            <Ionicons name="swap-horizontal" size={theme.fontSizes.md} color={theme.colors.primary} style={{marginLeft: theme.spacing.sm}} />
+                            <Ionicons name="swap-horizontal" size={theme.fontSizes.md} color={theme.colors.primary} style={{ marginLeft: theme.spacing.sm }} />
                         </TouchableOpacity>
                     </View>
-                    
+
                     <AppText size="md" color={theme.colors.text.primary} style={{ lineHeight: 24 }}>
                         {currentDefinition}
                     </AppText>
@@ -360,7 +360,7 @@ const DictionaryDetailView = () => {
 
                 {data.example ? (
                     <DetailSection
-                        title="Example"
+                        title="Ví dụ"
                         content={data.example}
                         backgroundColor={theme.colors.background}
                     />
@@ -372,13 +372,13 @@ const DictionaryDetailView = () => {
                         <View style={styles.titleRow}>
                             <Ionicons name="document-text-outline" size={18} color={theme.colors.secondary} />
                             <AppText size="xs" weight="bold" color={theme.colors.text.secondary} style={{ marginLeft: 8 }}>
-                                PERSONAL NOTES
+                                GHI CHÚ CÁ NHÂN
                             </AppText>
                         </View>
                         {!isEditingNote && (
                             <TouchableOpacity onPress={handleRequestEditNote}>
                                 <AppText size="sm" color={theme.colors.secondary} weight="bold">
-                                    {noteText ? "Edit Note" : "Add Note"}
+                                    {noteText ? "Sửa ghi chú" : "Thêm ghi chú"}
                                 </AppText>
                             </TouchableOpacity>
                         )}
@@ -387,7 +387,7 @@ const DictionaryDetailView = () => {
                     {isEditingNote ? (
                         <View style={styles.inputContainer}>
                             <AppInput
-                                placeholder="Add your personal notes here..."
+                                placeholder="Thêm ghi chú cá nhân của bạn tại đây..."
                                 value={noteText}
                                 onChangeText={setNoteText}
                                 multiline={true}
@@ -396,14 +396,14 @@ const DictionaryDetailView = () => {
 
                             <View style={styles.actionButtons}>
                                 <AppButton
-                                    title={isSavingNote ? "Saving..." : "Save Note"}
+                                    title={isSavingNote ? "Đang lưu..." : "Lưu ghi chú"}
                                     onPress={handleSaveNote}
                                     style={styles.saveBtn}
                                     icon="save-outline"
                                     disabled={isSavingNote}
                                 />
                                 <AppButton
-                                    title="Cancel"
+                                    title="Hủy"
                                     variant="outline"
                                     onPress={handleCancelNote}
                                     style={styles.cancelBtn}
@@ -413,7 +413,7 @@ const DictionaryDetailView = () => {
                         </View>
                     ) : (
                         <AppText color={theme.colors.text.secondary} style={styles.emptyNote}>
-                            {noteText || "No notes yet"}
+                            {noteText || "Chưa có ghi chú nào"}
                         </AppText>
                     )}
                 </View>
@@ -423,10 +423,10 @@ const DictionaryDetailView = () => {
                 {/* Quiz Action */}
                 <View style={styles.quizSection}>
                     <AppText size="md" weight="bold" style={{ marginBottom: theme.spacing.sm }}>
-                        Master this topic
+                        Ôn tập chủ đề này
                     </AppText>
                     <AppButton
-                        title={`Take a Quiz (${data.topicName})`}
+                        title={`Làm bài kiểm tra (${data.topicName})`}
                         icon="game-controller-outline"
                         onPress={handleStartQuiz}
                         style={styles.quizButton}
@@ -436,7 +436,7 @@ const DictionaryDetailView = () => {
                 {/* Related Words */}
                 <View style={styles.relatedContainer}>
                     <AppText size="md" weight="bold" style={styles.relatedTitle}>
-                        Related Words
+                        Từ vựng liên quan
                     </AppText>
 
                     {isLoadingRelated ? (
@@ -456,14 +456,14 @@ const DictionaryDetailView = () => {
                                     category={item.topicName}
                                     example={item.example}
                                     // 👇 UPDATE: Truyền trạng thái bookmark và hàm xử lý
-                                    isBookmarked={bookmarks.has(item.id)} 
+                                    isBookmarked={bookmarks.has(item.id)}
                                     onBookmarkPress={() => toggleBookmark(item.id)}
                                     onPress={() => handleRelatedWordPress(item)}
                                 />
                             ))
                         ) : (
                             <AppText size="sm" color={theme.colors.text.secondary} style={{ fontStyle: 'italic' }}>
-                                No related words found.
+                                Không tìm thấy từ vựng liên quan.
                             </AppText>
                         )
                     )}
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.colors.background },
     center: { justifyContent: 'center', alignItems: 'center' },
     scrollContent: { paddingBottom: 60 },
-    
+
     definitionWrapper: {
         backgroundColor: 'white',
         padding: theme.spacing.lg,

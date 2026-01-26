@@ -38,7 +38,7 @@ const HomeStreakBadge: React.FC<HomeStreakBadgeProps> = ({ streakDays, unclaimed
               {streakDays}
             </AppText>
             <AppText size="xs" color="rgba(255,255,255,0.8)" style={{ lineHeight: 14 }}>
-              day streak
+              streak liên tiếp
             </AppText>
           </View>
         </View>

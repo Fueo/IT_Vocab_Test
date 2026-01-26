@@ -23,12 +23,14 @@ const RewardCard: React.FC<Props> = ({ reward, onPress, onClaim }) => {
   const firstItem = reward.items?.[0];
   const itemImageURL = firstItem?.itemImageURL || null;
 
-  const badgeText = isLocked ? "Locked" : isClaimable ? "Claimable" : "Claimed";
+  // ✅ Dịch text hiển thị trạng thái badge
+  const badgeText = isLocked ? "Đã khóa" : isClaimable ? "Có thể nhận" : "Đã nhận";
   const pillStyle = isLocked ? styles.pillLocked : styles.pillUnlocked;
   const pillTextColor = isLocked ? theme.colors.text.secondary : "white";
 
   const claimBtnDisabled = !isClaimable;
-  const claimBtnText = isLocked ? "Locked" : isClaimed ? "Claimed" : "Claim";
+  // ✅ Dịch text nút bấm
+  const claimBtnText = isLocked ? "Đã khóa" : isClaimed ? "Đã nhận" : "Nhận";
   const claimBtnIcon = isLocked ? "lock-closed" : isClaimed ? "checkmark" : "gift";
 
   // ✅ Fix chữ quá to màn nhỏ: giảm size + lineHeight khi cần

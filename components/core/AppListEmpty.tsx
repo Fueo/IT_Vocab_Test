@@ -24,7 +24,7 @@ const AppListEmpty: React.FC<AppListEmptyProps> = ({
             {isLoading ? (
                 <View style={styles.center}>
                     <ActivityIndicator size="large" color={theme.colors.primary} />
-                    <AppText style={styles.loadingText}>Loading data...</AppText>
+                    <AppText style={styles.loadingText}>Đang tải dữ liệu...</AppText>
                 </View>
             ) : (
                 <View style={styles.center}>

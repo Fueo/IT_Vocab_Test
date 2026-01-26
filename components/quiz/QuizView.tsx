@@ -119,7 +119,7 @@ const QuizView = () => {
 
   const profile = useProfileStore((s) => s.profile);
 
-  const userName = profile?.name?.trim() || "Guest";
+  const userName = profile?.name?.trim() || "Khách";
   const streakDays = profile?.currentStreak ?? 0;
 
   const handleCloseDialog = useCallback(() => {
@@ -214,7 +214,7 @@ const QuizView = () => {
       pathname: `/course/[id]`,
       params: {
         id: `random:${defaultQuestions}`,
-        title: `Random Mode`,
+        title: `Chế độ ngẫu nhiên`,
         fromTab: "RANDOM",
         totalQuestions: String(defaultQuestions),
       },
@@ -233,8 +233,8 @@ const QuizView = () => {
         ListHeaderComponent={
           <>
             <HomeHeader
-              title={`Hi, ${userName}!`}
-              subtitle="Keep up the great work!"
+              title={`Chào, ${userName}!`}
+              subtitle="Cố gắng tiếp tục nhé!"
               rightComponent={
                 <HomeStreakBadge
                   streakDays={streakDays}
@@ -266,8 +266,8 @@ const QuizView = () => {
             <AppListEmpty
               isLoading={topicLoading}
               icon="book-outline"
-              title="No topic quizzes found"
-              description="Try pulling to refresh or come back later."
+              title="Không tìm thấy chủ đề nào"
+              description="Thử kéo xuống để làm mới hoặc quay lại sau."
               containerStyle={{ paddingVertical: theme.spacing.huge }}
             />
           ) : null
@@ -275,12 +275,20 @@ const QuizView = () => {
         renderItem={({ item }: { item: any }) => {
           if (selectedTab === "TOPIC") {
             const dynamicColors = getGradientByLevel(item.level);
+
+            // ✅ dữ liệu mới từ BE
+            const percent =
+              typeof item.percentCorrect === "number" ? item.percentCorrect : 0;
+
+            const xp =
+              typeof item.xp === "number" ? item.xp : 0;
+
             return (
               <QuizCard
                 title={item.title}
                 icon={"book-outline" as any}
-                percentage={0}
-                xp={0}
+                percentage={percent}   // ✅ show % đúng
+                xp={xp}                // ✅ show XP (totalQ*10)
                 colors={dynamicColors}
                 onPress={() => handlePressTopic(item.topicId, item.level, item.title)}
               />

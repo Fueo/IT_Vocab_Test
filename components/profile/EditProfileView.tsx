@@ -124,9 +124,9 @@ const EditProfileView = () => {
           return {
             visible: true,
             type: "warning",
-            title: "Please Wait",
-            message: "Please wait until the process is finished.",
-            confirmText: "OK",
+            title: "Vui Lòng Đợi",
+            message: "Vui lòng đợi quá trình hoàn tất.",
+            confirmText: "Đồng ý",
           };
         });
       }
@@ -156,13 +156,13 @@ const EditProfileView = () => {
     let hasError = false;
 
     if (!name.trim()) {
-      newErrors.name = "Full name cannot be empty.";
+      newErrors.name = "Họ và tên không được để trống.";
       hasError = true;
     }
 
     const phoneTrim = phone.trim();
     if (phoneTrim.length > 0 && !isValidPhone(phoneTrim)) {
-      newErrors.phone = "Please enter a valid phone number.";
+      newErrors.phone = "Vui lòng nhập số điện thoại hợp lệ.";
       hasError = true;
     }
 
@@ -180,18 +180,18 @@ const EditProfileView = () => {
 
       openDialog({
         type: "success",
-        title: "Success",
-        message: "Profile updated successfully!",
-        confirmText: "OK",
+        title: "Thành Công",
+        message: "Cập nhật hồ sơ thành công!",
+        confirmText: "Đồng ý",
         onCloseAction: () => router.back(),
       });
     } catch (e: any) {
-      const msg = getErrorMessage(e, "Failed to update profile.");
+      const msg = getErrorMessage(e, "Cập nhật hồ sơ thất bại.");
       openDialog({
         type: "error",
-        title: "Update Failed",
+        title: "Cập Nhật Thất Bại",
         message: msg,
-        confirmText: "OK",
+        confirmText: "Đồng ý",
       });
     } finally {
       setIsSaving(false);
@@ -220,12 +220,12 @@ const EditProfileView = () => {
       // revert UI
       setAvatarUrl(profile?.avatarURL ?? null);
 
-      const msg = getErrorMessage(e, "Upload failed.");
+      const msg = getErrorMessage(e, "Tải lên thất bại.");
       openDialog({
         type: "error",
-        title: "Upload Error",
+        title: "Lỗi Tải Lên",
         message: msg,
-        confirmText: "OK",
+        confirmText: "Đồng ý",
       });
     } finally {
       setIsUploadingAvatar(false);
@@ -234,7 +234,7 @@ const EditProfileView = () => {
 
   return (
     <View style={styles.container}>
-      <AppDetailHeader title="Edit Profile" />
+      <AppDetailHeader title="Chỉnh Sửa Hồ Sơ" />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -274,26 +274,26 @@ const EditProfileView = () => {
             </View>
 
             <AppText size="sm" color={theme.colors.text.secondary} style={{ marginTop: 12 }}>
-              Change Profile Picture
+              Đổi Ảnh Đại Diện
             </AppText>
           </View>
 
           {/* FORM */}
           <View style={styles.formContainer}>
             <AppInput
-              label="FULL NAME"
+              label="HỌ VÀ TÊN"
               value={name}
               onChangeText={(val) => handleChange("name", val)}
-              placeholder="Enter your name"
+              placeholder="Nhập tên của bạn"
               icon="person-outline"
               error={errors.name}
             />
 
             <AppInput
-              label="PHONE NUMBER"
+              label="SỐ ĐIỆN THOẠI"
               value={phone}
               onChangeText={(val) => handleChange("phone", val)}
-              placeholder="Enter phone number"
+              placeholder="Nhập số điện thoại"
               icon="call-outline"
               keyboardType="phone-pad"
               error={errors.phone}
@@ -301,7 +301,7 @@ const EditProfileView = () => {
           </View>
 
           <AppButton
-            title={isSaving ? "Saving..." : "Save Changes"}
+            title={isSaving ? "Đang lưu..." : "Lưu Thay Đổi"}
             onPress={handleSave}
             isLoading={isSaving || storeLoading || isUploadingAvatar}
             disabled={!canSave}
@@ -323,7 +323,7 @@ const EditProfileView = () => {
         title={dialog.title}
         message={dialog.message}
         onClose={closeDialog}
-        confirmText={dialog.confirmText || "OK"}
+        confirmText={dialog.confirmText || "Đồng ý"}
         onlyConfirm={true}
       />
     </View>

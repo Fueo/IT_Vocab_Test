@@ -189,8 +189,8 @@ const FeedbackView = () => {
         setDialogConfig({
             visible: true,
             type: "confirm",
-            title: "Xoá Feedback",
-            message: "Bạn có chắc chắn muốn xoá feedback này không? Hành động này không thể hoàn tác.",
+            title: "Xoá Phản Hồi",
+            message: "Bạn có chắc chắn muốn xoá phản hồi này không? Hành động này không thể hoàn tác.",
             confirmText: "Xoá",
             closeText: "Huỷ",
             isDestructive: true,
@@ -208,7 +208,7 @@ const FeedbackView = () => {
                             visible: true,
                             type: "error",
                             title: "Lỗi",
-                            message: msg || "Không thể xoá feedback.",
+                            message: msg || "Không thể xoá phản hồi.",
                             confirmText: "Đóng",
                             closeText: undefined,
                             isDestructive: false,
@@ -232,7 +232,7 @@ const FeedbackView = () => {
     // --- Render ---
     return (
         <View style={styles.container}>
-            <HomeHeader title="Lịch sử Feedback" subtitle={`${total} feedback đã gửi`} rightComponent={renderRightComponent()} />
+            <HomeHeader title="Lịch sử Phản Hồi" subtitle={`${total} phản hồi đã gửi`} rightComponent={renderRightComponent()} />
 
             <FlatList
                 data={feedbacks}
@@ -251,7 +251,7 @@ const FeedbackView = () => {
                 ListEmptyComponent={
                     <AppListEmpty
                         isLoading={isLoading}
-                        title="Chưa có feedback nào"
+                        title="Chưa có phản hồi nào"
                         description="Hãy gửi đóng góp ý kiến của bạn cho chúng tôi nhé."
                     />
                 }
