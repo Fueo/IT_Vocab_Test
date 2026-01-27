@@ -3,9 +3,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   Dimensions,
   FlatList,
   Linking,
+  PanResponder,
   RefreshControl,
   StyleSheet,
   TouchableOpacity,
@@ -28,7 +30,7 @@ import PaginationControl from "../core/PaginationControl";
 import AppDialog, { DialogType } from "../core/AppDialog";
 import AppListEmpty from "../core/AppListEmpty";
 
-// ✅ Import API Feedback (Giả định đường dẫn file bạn đã tạo)
+// ✅ Import API Feedback
 import { feedbackApi } from "../../api/feedback";
 
 const { width } = Dimensions.get("window");
@@ -121,7 +123,7 @@ const QuizView = () => {
     message: "",
   });
 
-  // Cache flag: đã load TOPIC lần nào chưa
+  // Cache flag
   const hasLoadedTopicRef = useRef(false);
 
   const profile = useProfileStore((s) => s.profile);
@@ -255,6 +257,89 @@ const QuizView = () => {
     });
   }, [handleCloseDialog]);
 
+  // ==========================================
+  // ✅ LOGIC KÉO THẢ FAB (DRAGGABLE)
+  // ==========================================
+  const pan = useRef(new Animated.ValueXY()).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+
+      onPanResponderGrant: () => {
+        pan.setOffset({
+          x: (pan.x as any)._value,
+          y: (pan.y as any)._value,
+        });
+        pan.setValue({ x: 0, y: 0 }); // Reset giá trị delta để tính toán chính xác
+      },
+
+      onPanResponderMove: Animated.event(
+        [null, { dx: pan.x, dy: pan.y }],
+        { useNativeDriver: false }
+      ),
+
+      onPanResponderRelease: (e, gestureState) => {
+        pan.flattenOffset(); // Gộp offset vào giá trị chính thức
+
+        // 1. XỬ LÝ CLICK (Nếu di chuyển ít hơn 5px thì coi là Click)
+        if (Math.abs(gestureState.dx) < 5 && Math.abs(gestureState.dy) < 5) {
+          handlePressFeedback();
+          return; // Dừng logic kéo thả tại đây
+        }
+
+        // 2. XỬ LÝ GIỚI HẠN BIÊN (BOUNDARY CHECK)
+        // Lấy kích thước màn hình & Cấu hình khoảng cách
+        const { width, height } = Dimensions.get("window");
+        const FAB_SIZE = 56;    // Kích thước nút
+        const MARGIN_CSS = 24;  // Lề mặc định trong styles (theme.spacing.lg)
+        const SAFE_PADDING = 10; // Khoảng cách an toàn muốn giữ thêm
+
+        // Lưu ý: Tọa độ (0,0) của nút là ở GÓC DƯỚI-PHẢI (do style bottom/right)
+        // -> Kéo sang TRÁI là số ÂM
+        // -> Kéo lên TRÊN là số ÂM
+
+        let newX = (pan.x as any)._value;
+        let newY = (pan.y as any)._value;
+
+        // --- TÍNH TOÁN TRỤC X (Ngang) ---
+        // Giới hạn Phải: Không được vượt quá 0 (vị trí gốc)
+        if (newX > 0) {
+          newX = 0;
+        }
+        // Giới hạn Trái: Tổng chiều rộng - (Lề phải + Lề trái + Kích thước nút)
+        else {
+          const minX = -(width - MARGIN_CSS * 2 - FAB_SIZE);
+          if (newX < minX) newX = minX;
+        }
+
+        // --- TÍNH TOÁN TRỤC Y (Dọc) ---
+        // Giới hạn Dưới: Không được vượt quá 0
+        if (newY > 0) {
+          newY = 0;
+        }
+        // Giới hạn Trên: Chiều cao - (Lề dưới + Header + Kích thước nút)
+        // Ước lượng khoảng cách header ~150px để không che nội dung trên cùng
+        else {
+          const minY = -(height - MARGIN_CSS * 2 - FAB_SIZE - 100);
+          if (newY < minY) newY = minY;
+        }
+
+        // 3. ANIMATION BÚNG VỀ VỊ TRÍ AN TOÀN
+        Animated.spring(pan, {
+          toValue: { x: newX, y: newY },
+          useNativeDriver: false,
+          friction: 6, // Độ nảy (càng lớn càng ít nảy)
+          tension: 40  // Tốc độ
+        }).start();
+      },
+    })
+  ).current;
+
+  // ==========================================
+  // RENDER
+  // ==========================================
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -338,28 +423,28 @@ const QuizView = () => {
         }
       />
 
-      {/* ✅ NÚT FAB GOOGLE FORM + BADGE */}
-      <TouchableOpacity
-        style={styles.fabContainer}
-        activeOpacity={0.8}
-        onPress={handlePressFeedback}
+      {/* ✅ NÚT FAB DRAGGABLE (KÉO ĐƯỢC) */}
+      <Animated.View
+        style={[
+          styles.fabContainer,
+          { transform: pan.getTranslateTransform() } // Áp dụng vị trí kéo
+        ]}
+        {...panResponder.panHandlers} // Gắn sự kiện cảm ứng
       >
         <LinearGradient
-          // Màu tím đặc trưng Google Form (Deep Purple)
           colors={["#673AB7", "#512DA8"]}
           style={styles.fabGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          {/* Icon Tờ giấy văn bản */}
           <Ionicons name="document-text" size={28} color="white" />
         </LinearGradient>
 
-        {/* Badge dấu chấm than màu đỏ */}
+        {/* Badge */}
         <View style={styles.badge}>
           <AppText size="xs" weight="bold" color="white">!</AppText>
         </View>
-      </TouchableOpacity>
+      </Animated.View>
 
       {/* Global Dialog */}
       <AppDialog
@@ -454,7 +539,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.1)",
   },
 
-  // ✅ FAB STYLES
+  // ✅ FAB STYLES (Giữ nguyên position absolute để làm điểm neo ban đầu)
   fabContainer: {
     position: "absolute",
     bottom: theme.spacing.lg,
