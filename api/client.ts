@@ -13,7 +13,7 @@ const baseURL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 export const api: AxiosInstance = axios.create({
   baseURL,
-  timeout: 15000,
+  timeout: 30000,
   // ✅ KHÔNG set Content-Type global (để tự động theo từng request)
 });
 
