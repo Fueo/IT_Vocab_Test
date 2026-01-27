@@ -13,7 +13,7 @@ export type LeaderboardItem = {
 
     avatarURL: string | null;
 
-    value: number;              // nếu tab=XP thì value, còn lại 0
+    xp: number;              // nếu tab=XP thì value, còn lại 0
     streak: number;          // nếu tab=Streak thì value, còn lại 0
 
     rankLevel: number | null;

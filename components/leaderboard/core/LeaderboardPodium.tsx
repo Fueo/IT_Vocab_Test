@@ -53,9 +53,13 @@ const LeaderboardPodium: React.FC<Props> = ({ topThree, selectedTab }) => {
 
         const xp = item.xp ?? 0;
         const streak = item.streak ?? 0;
+        const level = item.rankLevel ?? 1; // ✅ Lấy level từ item
 
+        // ✅ Sửa logic hiển thị text theo yêu cầu
         const displayValue =
-            selectedTab === "XP" ? `${xp.toLocaleString()} XP` : `${streak} Days`;
+            selectedTab === "XP"
+                ? `Level: ${level} - ${xp.toLocaleString()} XP`
+                : `${streak} Days`;
 
         const gradient =
             item.rank === 1
@@ -84,9 +88,9 @@ const LeaderboardPodium: React.FC<Props> = ({ topThree, selectedTab }) => {
                 <View style={styles.avatarWrapper}>
                     <UserAvatar
                         initials={getInitials(item.name)}
-                        imageUrl={item.avatarURL ?? undefined} // ✅ avatar từ BE
+                        imageUrl={item.avatarURL ?? undefined}
                         size={rankSize}
-                        frameImageUrl={frameUrl} // ✅ khung từ BE (remote)
+                        frameImageUrl={frameUrl}
                         avatarScale={0.82}
                     />
 
@@ -108,7 +112,13 @@ const LeaderboardPodium: React.FC<Props> = ({ topThree, selectedTab }) => {
                         {item.name ?? "User"}
                     </AppText>
 
-                    <AppText size="xs" weight="bold" color={theme.colors.success}>
+                    {/* Text hiển thị XP/Level hoặc Streak */}
+                    <AppText
+                        size="xs"
+                        weight="bold"
+                        color={theme.colors.success}
+                        style={{ textAlign: "center" }} // Căn giữa text nếu nó dài quá
+                    >
                         {displayValue}
                     </AppText>
                 </View>

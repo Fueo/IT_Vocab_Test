@@ -6,10 +6,6 @@ import { api } from "./client";
 
 export type FeedbackStatus = "open" | "resolved" | "closed" | "pending";
 
-/**
- * Type trả về chung cho danh sách phân trang
- * (Khớp format với dictionary.ts và BE response)
- */
 export type PaginationRes<T> = {
   message: string;
   page: number;
@@ -19,9 +15,6 @@ export type PaginationRes<T> = {
   items: T[];
 };
 
-/**
- * User info bên trong Admin List Item
- */
 export type FeedbackCreatorDto = {
   id: string;
   fullName: string;
@@ -29,10 +22,6 @@ export type FeedbackCreatorDto = {
   role: string;
 };
 
-/**
- * Item Feedback trả về (Dùng chung cho cả Admin & User)
- * Admin sẽ có thêm field createdBy
- */
 export type FeedbackItemDto = {
   id: string;
   title: string;
@@ -40,7 +29,6 @@ export type FeedbackItemDto = {
   content: string;
   status: FeedbackStatus;
   createdAt: string;
-  // Field này chỉ có khi gọi API Admin
   createdBy?: FeedbackCreatorDto | null;
 };
 
@@ -48,26 +36,20 @@ export type FeedbackItemDto = {
 // Request Params & Bodies
 // =======================
 
-// Query params cho danh sách (Admin & User)
 export type FeedbackListQuery = {
   page?: number;
   pageSize?: number;
   status?: FeedbackStatus | "all";
-  // Admin only params
   reason?: string | "all";
-  q?: string; // Search keyword
+  q?: string;
 };
 
-// Body tạo mới
 export type CreateFeedbackBody = {
   title: string;
   reason: string;
   content: string;
 };
 
-// Body cập nhật (Dùng chung cho cả Admin & User)
-// - User: gửi title, reason, content
-// - Admin: gửi status
 export type UpdateFeedbackBody = {
   title?: string;
   reason?: string;
@@ -75,7 +57,6 @@ export type UpdateFeedbackBody = {
   status?: FeedbackStatus;
 };
 
-// Query params cho Admin Delete All
 export type AdminDeleteAllQuery = {
   reason?: string | "all";
   status?: FeedbackStatus | "all";
@@ -84,6 +65,12 @@ export type AdminDeleteAllQuery = {
 // =======================
 // Responses
 // =======================
+
+// --- [MỚI] Type cho API lấy link form ---
+export type FeedbackFormLinkRes = {
+  message: string;
+  formLink: string;
+};
 
 export type CreateFeedbackRes = {
   message: string;
@@ -132,6 +119,16 @@ export const feedbackApi = {
       .then((r) => r.data);
   },
 
+  /**
+   * GET /feedback/form
+   * [MỚI] Lấy link form feedback
+   */
+  getFeedbackFormLink() {
+    return api
+      .get<FeedbackFormLinkRes>("/feedback/form")
+      .then((r) => r.data);
+  },
+
   // =========================
   // ADMIN API
   // =========================
@@ -162,8 +159,6 @@ export const feedbackApi = {
 
   /**
    * PUT /feedback/:feedbackId
-   * - User: Sửa title/reason/content (chỉ khi open)
-   * - Admin: Sửa status (resolved/closed/open)
    */
   updateFeedback(feedbackId: string, body: UpdateFeedbackBody) {
     return api
@@ -173,8 +168,6 @@ export const feedbackApi = {
 
   /**
    * DELETE /feedback/:feedbackId
-   * - User: Xoá của mình (chỉ khi open)
-   * - Admin: Xoá bất kỳ
    */
   deleteFeedback(feedbackId: string) {
     return api

@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Dimensions,
   FlatList,
+  Linking,
   RefreshControl,
   StyleSheet,
   TouchableOpacity,
@@ -23,9 +24,12 @@ import { useProfileStore } from "@/store/useProfileStore";
 import { quizApi, TopicQuizItem } from "../../api/quiz";
 import PaginationControl from "../core/PaginationControl";
 
-// ✅ Import Component Empty và Dialog
+// ✅ Import Component Dialog và Empty
 import AppDialog, { DialogType } from "../core/AppDialog";
 import AppListEmpty from "../core/AppListEmpty";
+
+// ✅ Import API Feedback (Giả định đường dẫn file bạn đã tạo)
+import { feedbackApi } from "../../api/feedback";
 
 const { width } = Dimensions.get("window");
 const PAGE_SIZE = 10;
@@ -101,12 +105,15 @@ const QuizView = () => {
   // ===== Refresh =====
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // ===== ✅ State cho Dialog =====
+  // ===== Dialog State =====
   const [dialogConfig, setDialogConfig] = useState<{
     visible: boolean;
     type: DialogType;
     title: string;
     message: string;
+    confirmText?: string;
+    closeText?: string;
+    onConfirm?: () => void;
   }>({
     visible: false,
     type: "error",
@@ -114,7 +121,7 @@ const QuizView = () => {
     message: "",
   });
 
-  // ✅ Cache flag: đã load TOPIC lần nào chưa (để đổi tab không fetch lại)
+  // Cache flag: đã load TOPIC lần nào chưa
   const hasLoadedTopicRef = useRef(false);
 
   const profile = useProfileStore((s) => s.profile);
@@ -126,6 +133,7 @@ const QuizView = () => {
     setDialogConfig((prev) => ({ ...prev, visible: false }));
   }, []);
 
+  // ===== LOGIC: Fetch Topics =====
   const fetchTopicPage = useCallback(async (page: number, opts?: { refreshing?: boolean }) => {
     const refreshing = !!opts?.refreshing;
 
@@ -136,39 +144,29 @@ const QuizView = () => {
       setTopicPage(res.page || page);
       setTopicTotalPages(res.totalPages || 1);
 
-      // ✅ đánh dấu đã load ít nhất 1 lần
       hasLoadedTopicRef.current = true;
     } catch (e: any) {
       setTopicItems([]);
       setTopicTotalPages(1);
 
       const errorMsg = e.userMessage || "Không tải được danh sách chủ đề.";
-
       setDialogConfig({
         visible: true,
         type: "error",
         title: "Rất tiếc!",
         message: errorMsg,
+        confirmText: "Đóng",
+        onConfirm: handleCloseDialog,
       });
-
-      // (tuỳ chọn) cho phép quay lại tab sẽ thử load lại
-      // hasLoadedTopicRef.current = false;
     } finally {
       setTopicLoading(false);
       if (refreshing) setIsRefreshing(false);
     }
-  }, []);
+  }, [handleCloseDialog]);
 
-  // ✅ Cơ chế giống Dictionary:
-  // - Chỉ gọi API khi vào TOPIC lần đầu (hoặc dữ liệu đang rỗng và chưa từng load)
-  // - Đổi tab qua lại KHÔNG fetch lại
   useEffect(() => {
     if (selectedTab !== "TOPIC") return;
-
-    // Nếu đã load rồi và đang có data => không gọi lại API
     if (hasLoadedTopicRef.current && topicItems.length > 0) return;
-
-    // Lần đầu vào TOPIC (hoặc data rỗng) => fetch page hiện tại (mặc định 1)
     const pageToLoad = topicPage || 1;
     fetchTopicPage(pageToLoad);
   }, [selectedTab, fetchTopicPage, topicItems.length, topicPage]);
@@ -220,6 +218,42 @@ const QuizView = () => {
       },
     });
   }, []);
+
+  // ===== LOGIC: Feedback Button Press =====
+  const handlePressFeedback = useCallback(() => {
+    setDialogConfig({
+      visible: true,
+      type: "info",
+      title: "Khảo sát ý kiến",
+      message: "Chúng tôi rất trân trọng đóng góp của bạn. Bạn có muốn mở biểu mẫu (Google Form) để gửi phản hồi không?",
+      confirmText: "Mở ngay",
+      closeText: "Để sau",
+      onConfirm: async () => {
+        try {
+          // 1. Đóng dialog
+          handleCloseDialog();
+
+          // 2. Gọi API lấy link
+          const res = await feedbackApi.getFeedbackFormLink();
+
+          if (res && res.formLink && res.formLink !== "Chưa có link") {
+            // 3. Mở trình duyệt
+            const supported = await Linking.canOpenURL(res.formLink);
+            if (supported) {
+              await Linking.openURL(res.formLink);
+            } else {
+              alert("Không thể mở liên kết này: " + res.formLink);
+            }
+          } else {
+            // Fallback
+            alert("Hiện chưa có biểu mẫu nào được kích hoạt.");
+          }
+        } catch (e) {
+          console.error("Lỗi mở link feedback", e);
+        }
+      },
+    });
+  }, [handleCloseDialog]);
 
   return (
     <View style={styles.container}>
@@ -275,20 +309,15 @@ const QuizView = () => {
         renderItem={({ item }: { item: any }) => {
           if (selectedTab === "TOPIC") {
             const dynamicColors = getGradientByLevel(item.level);
-
-            // ✅ dữ liệu mới từ BE
-            const percent =
-              typeof item.percentCorrect === "number" ? item.percentCorrect : 0;
-
-            const xp =
-              typeof item.xp === "number" ? item.xp : 0;
+            const percent = typeof item.percentCorrect === "number" ? item.percentCorrect : 0;
+            const xp = typeof item.xp === "number" ? item.xp : 0;
 
             return (
               <QuizCard
                 title={item.title}
                 icon={"book-outline" as any}
-                percentage={percent}   // ✅ show % đúng
-                xp={xp}                // ✅ show XP (totalQ*10)
+                percentage={percent}
+                xp={xp}
                 colors={dynamicColors}
                 onPress={() => handlePressTopic(item.topicId, item.level, item.title)}
               />
@@ -309,13 +338,39 @@ const QuizView = () => {
         }
       />
 
+      {/* ✅ NÚT FAB GOOGLE FORM + BADGE */}
+      <TouchableOpacity
+        style={styles.fabContainer}
+        activeOpacity={0.8}
+        onPress={handlePressFeedback}
+      >
+        <LinearGradient
+          // Màu tím đặc trưng Google Form (Deep Purple)
+          colors={["#673AB7", "#512DA8"]}
+          style={styles.fabGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          {/* Icon Tờ giấy văn bản */}
+          <Ionicons name="document-text" size={28} color="white" />
+        </LinearGradient>
+
+        {/* Badge dấu chấm than màu đỏ */}
+        <View style={styles.badge}>
+          <AppText size="xs" weight="bold" color="white">!</AppText>
+        </View>
+      </TouchableOpacity>
+
+      {/* Global Dialog */}
       <AppDialog
         visible={dialogConfig.visible}
         type={dialogConfig.type}
         title={dialogConfig.title}
         message={dialogConfig.message}
         onClose={handleCloseDialog}
-        confirmText="Đóng"
+        onConfirm={dialogConfig.onConfirm}
+        confirmText={dialogConfig.confirmText || "Đóng"}
+        closeText={dialogConfig.closeText}
       />
     </View>
   );
@@ -336,6 +391,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
 
+  // Banner Styles
   bannerContainer: {
     paddingHorizontal: theme.spacing.md,
     marginBottom: theme.spacing.lg,
@@ -396,6 +452,40 @@ const styles = StyleSheet.create({
     height: 150,
     borderRadius: 75,
     backgroundColor: "rgba(255,255,255,0.1)",
+  },
+
+  // ✅ FAB STYLES
+  fabContainer: {
+    position: "absolute",
+    bottom: theme.spacing.lg,
+    right: theme.spacing.lg,
+    shadowColor: "#673AB7",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+    zIndex: 999,
+  },
+  fabGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  badge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    backgroundColor: theme.colors.error || "#EF4444",
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: theme.colors.background,
+    zIndex: 1000,
   },
 });
 

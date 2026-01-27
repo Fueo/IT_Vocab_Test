@@ -1,6 +1,7 @@
 // src/components/game/QuizResultView.tsx
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+// ✅ Thêm StyleSheet.absoluteFillObject để làm overlay
 import { ActivityIndicator, Animated, Easing, ScrollView, StyleSheet, View } from "react-native";
 
 import theme from "../../theme";
@@ -120,11 +121,9 @@ export default function QuizResultView() {
         const earned = Math.max(0, Number(res?.attempt?.earnedXP ?? 0));
         animateEarned(earned);
 
-        // ✅ store meta
         setXpMeta(res?.xpMeta ?? null);
         setNewRewards(Array.isArray(res?.newRewards) ? res.newRewards : []);
 
-        // ✅ patch profile store theo BE mới (rank chỉ rankLevel/rankName, nextRank neededXP/remainingXP)
         if (res?.user) {
           patchFromFinish({
             currentXP: Number(res.user.currentXP ?? 0),
@@ -171,26 +170,20 @@ export default function QuizResultView() {
   const subtitle = isSuccess ? `${courseTitle} hoàn thành xuất sắc` : `${courseTitle} đã hoàn thành`;
   const message = isSuccess ? "Bạn đang làm rất tốt! Hãy tiếp tục bức phá." : "Đừng bỏ cuộc! Mỗi lần thử đều giúp bạn tiến bộ hơn.";
 
-  // ✅ derived flags
   const isFullCombo = totalCount > 0 && correctCount === totalCount;
-
   const rewardsArr = Array.isArray(newRewards) ? newRewards : [];
   const hasRewards = rewardsArr.length > 0;
-
   const xpMultiplier = Math.max(1, Number(xpMeta?.multiplier ?? 1));
   const xpBoostApplied = !!xpMeta?.applied && xpMultiplier > 1;
 
   const rewardSummaryText = useMemo(() => {
     if (!hasRewards) return "";
-
     const rankCount = rewardsArr.filter((x) => x?.type === "RANK").length;
     const streakCount = rewardsArr.filter((x) => x?.type === "STREAK").length;
-
     const parts: string[] = [];
     if (rankCount) parts.push(`${rankCount} Hạng`);
     if (streakCount) parts.push(`${streakCount} Chuỗi`);
     if (!parts.length) parts.push(`${rewardsArr.length} Phần thưởng`);
-
     return parts.join(" • ");
   }, [hasRewards, rewardsArr]);
 
@@ -201,13 +194,21 @@ export default function QuizResultView() {
   }, [xpBoostApplied, xpMultiplier, xpMeta]);
 
   return (
-    <>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} bounces={false}>
+    // ✅ Thay đổi: Bọc ngoài bằng View flex: 1 để chứa Loading Overlay
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        // ✅ Thay đổi: Vô hiệu hóa touch/scroll khi đang finishing
+        pointerEvents={finishing ? "none" : "auto"}
+      >
         <ResultHeader score={correctCount} total={totalCount} title={title} subtitle={subtitle} iconSource={null} />
 
-        {attemptId ? (
+        {/* Bỏ loading nhỏ ở đây vì đã có overlay */}
+        {/* {attemptId ? (
           <View style={styles.finishRow}>{finishing ? <ActivityIndicator size="small" color={theme.colors.primary} /> : null}</View>
-        ) : null}
+        ) : null} */}
 
         <View style={styles.statsContainer}>
           <StatCard label="Độ chính xác" value={`${accuracy}%`} icon="radio-button-on" iconColor={theme.colors.secondary} />
@@ -228,7 +229,6 @@ export default function QuizResultView() {
           />
         </View>
 
-        {/* ✅ Full combo */}
         {isFullCombo ? (
           <AppBanner
             message={`Full Combo! Bạn trả lời đúng ${correctCount}/${totalCount}. Đã cộng thêm +50 XP thưởng.`}
@@ -238,12 +238,10 @@ export default function QuizResultView() {
           />
         ) : null}
 
-        {/* ✅ XP boost */}
         {xpBoostApplied ? (
           <AppBanner message={xpBoostText} variant="info" icon="flash" containerStyle={styles.bannerMarginSmall} />
         ) : null}
 
-        {/* ✅ Rewards */}
         {hasRewards ? (
           <AppBanner
             message={`Bạn nhận được phần thưởng: ${rewardSummaryText}`}
@@ -260,7 +258,6 @@ export default function QuizResultView() {
           containerStyle={styles.bannerMarginSmall}
         />
 
-        {/* optional breakdown */}
         {xpMeta ? (
           <View style={styles.metaBox}>
             <AppText size="xs" color={theme.colors.text.secondary}>
@@ -280,7 +277,6 @@ export default function QuizResultView() {
                 params: {
                   attemptId,
                   courseTitle,
-                  // ✅ pass meta cho review screen
                   fullCombo: String(isFullCombo),
                   xpMeta: JSON.stringify(xpMeta ?? null),
                   newRewards: JSON.stringify(rewardsArr ?? []),
@@ -289,10 +285,19 @@ export default function QuizResultView() {
             }
             icon="eye-outline"
             style={styles.reviewBtn}
+            // ✅ Thay đổi: Disable khi finishing
             disabled={!attemptId || finishing}
           />
 
-          <AppButton title="Làm lại" variant="primary" onPress={() => router.back()} icon="refresh" style={styles.actionMargin} />
+          <AppButton
+            title="Làm lại"
+            variant="primary"
+            onPress={() => router.navigate("/tabs/quiz" as any)}
+            icon="refresh"
+            style={styles.actionMargin}
+            // ✅ Thay đổi: Disable khi finishing
+            disabled={finishing}
+          />
 
           <AppButton
             title="Về trang chủ"
@@ -300,9 +305,19 @@ export default function QuizResultView() {
             onPress={() => router.navigate("/tabs/quiz" as any)}
             icon="home-outline"
             style={styles.homeBtn}
+            // ✅ Thay đổi: Disable khi finishing
+            disabled={finishing}
           />
         </View>
       </ScrollView>
+
+      {/* ✅ Thay đổi: Thêm Loading Overlay bao trùm toàn màn hình */}
+      {finishing && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <AppText style={styles.loadingText}>Đang tổng kết...</AppText>
+        </View>
+      )}
 
       <AppDialog
         visible={dialog.visible}
@@ -312,7 +327,7 @@ export default function QuizResultView() {
         closeText={dialog.closeText || "Đồng ý"}
         onClose={closeDialog}
       />
-    </>
+    </View>
   );
 }
 
@@ -326,14 +341,12 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.lg,
     gap: theme.spacing.md,
   },
-
   bannerMargin: {
     marginTop: theme.spacing.lg,
   },
   bannerMarginSmall: {
     marginTop: theme.spacing.md,
   },
-
   metaBox: {
     marginTop: theme.spacing.sm,
     paddingHorizontal: theme.spacing.md,
@@ -343,7 +356,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-
   actionsContainer: {
     marginTop: theme.spacing.xxl,
   },
@@ -364,5 +376,18 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     alignItems: "center",
     justifyContent: "center",
+  },
+  // ✅ Style mới cho Overlay
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject, // Phủ kín màn hình
+    backgroundColor: "rgba(255, 255, 255, 0.8)", // Nền trắng mờ (hoặc tối tùy theme)
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999, // Đè lên mọi thứ
+  },
+  loadingText: {
+    marginTop: theme.spacing.sm,
+    color: theme.colors.text.secondary,
+    fontWeight: "600",
   },
 });

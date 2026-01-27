@@ -52,7 +52,6 @@
     "plugins": [
       "expo-router",
       "expo-web-browser",
-      "expo-facebook"
     ],
     "experiments": {
       "typedRoutes": true,
