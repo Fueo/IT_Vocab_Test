@@ -57,7 +57,7 @@ const MainTabNavigator = () => {
             />
             {/* ... (Các tab khác giữ nguyên) ... */}
             <Tabs.Screen name="dictionary" options={{ title: 'Từ điển', tabBarIcon: ({ color, focused }) => <TabBarIcon name="book" color={color} focused={focused} /> }} />
-            <Tabs.Screen name="leaderboard" options={{ title: 'Bảng xếp hạng', tabBarIcon: ({ color, focused }) => <TabBarIcon name="trophy" color={color} focused={focused} /> }} />
+            <Tabs.Screen name="leaderboard" options={{ title: 'Xếp hạng', tabBarIcon: ({ color, focused }) => <TabBarIcon name="trophy" color={color} focused={focused} /> }} />
             <Tabs.Screen name="inventory" options={{ title: 'Kho đồ', tabBarIcon: ({ color, focused }) => <TabBarIcon name="bag-handle" color={color} focused={focused} /> }} />
             <Tabs.Screen name="profile" options={{ title: 'Hồ sơ', tabBarIcon: ({ color, focused }) => <TabBarIcon name="person" color={color} focused={focused} /> }} />
         </Tabs>

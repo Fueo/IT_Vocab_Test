@@ -250,10 +250,17 @@ export type RankProgress = {
 export type FinishAttemptRes = {
   attempt: {
     attemptId: string;
+
+    // ✅ NEW: để FE có thể replay đúng quiz TOPIC
+    mode: QuizMode;
+    topicId: string | null;
+    level: number | null;
+
     totalQuestions: number;
     correctAnswers: number;
     earnedXP: number;
     status: AttemptStatus;
+    finishedAt?: string | null; // optional nếu BE có trả
   };
 
   xpMeta: XpMeta;
@@ -270,14 +277,14 @@ export type FinishAttemptRes = {
       rankId: string;
       rankLevel: number;
       rankName: string;
-      neededXP: number; // ✅ BE trả neededXP (không phải neededEXP)
+      neededXP: number;
     } | null;
     nextRank:
     | {
       rankId: string;
       rankLevel: number;
       rankName: string;
-      neededXP: number; // ✅ BE trả neededXP
+      neededXP: number;
     }
     | null;
   };
@@ -286,7 +293,6 @@ export type FinishAttemptRes = {
 
   newRewards: NewReward[];
 };
-
 // =======================
 // History
 // =======================

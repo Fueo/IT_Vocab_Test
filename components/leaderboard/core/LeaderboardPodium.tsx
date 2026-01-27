@@ -59,7 +59,7 @@ const LeaderboardPodium: React.FC<Props> = ({ topThree, selectedTab }) => {
         const displayValue =
             selectedTab === "XP"
                 ? `Level: ${level} - ${xp.toLocaleString()} XP`
-                : `${streak} Days`;
+                : `${streak} Ngày`;
 
         const gradient =
             item.rank === 1

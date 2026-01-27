@@ -1,7 +1,6 @@
 // src/components/game/QuizResultView.tsx
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-// ✅ Thêm StyleSheet.absoluteFillObject để làm overlay
 import { ActivityIndicator, Animated, Easing, ScrollView, StyleSheet, View } from "react-native";
 
 import theme from "../../theme";
@@ -10,13 +9,15 @@ import AppDialog, { DialogType } from "../core/AppDialog";
 import ResultHeader from "./core/QuizResultHeader";
 import StatCard from "./core/StatCard";
 
-import { quizApi } from "../../api/quiz";
+import { quizApi, QuizMode } from "../../api/quiz";
 import { useProfileStore } from "../../store/useProfileStore";
 
 function asString(v: unknown): string {
   if (v == null) return "";
   return Array.isArray(v) ? String(v[0] ?? "") : String(v);
 }
+
+
 
 type DialogState = {
   visible: boolean;
@@ -43,6 +44,20 @@ type NewReward =
   | { type: "STREAK"; name: string; dayNumber: number; inboxId: string }
   | any;
 
+// ✅ NEW: store attempt meta from finish() so we can retry same quiz
+type FinishAttemptMeta = {
+  mode: QuizMode;
+  topicId: string | null;
+  level: number | null;
+};
+
+const QUIZ_MODES = ["TOPIC", "RANDOM", "INFINITE", "LEARN"] as const;
+
+function toQuizMode(v: any): QuizMode {
+  const s = String(v ?? "").toUpperCase();
+  return (QUIZ_MODES as readonly string[]).includes(s) ? (s as QuizMode) : "TOPIC";
+}
+
 export default function QuizResultView() {
   const params = useLocalSearchParams();
   const patchFromFinish = useProfileStore((s) => s.patchFromFinish);
@@ -67,6 +82,7 @@ export default function QuizResultView() {
   // ===== NEW: finish meta states =====
   const [xpMeta, setXpMeta] = useState<XpMeta | null>(null);
   const [newRewards, setNewRewards] = useState<NewReward[]>([]);
+  const [finishAttemptMeta, setFinishAttemptMeta] = useState<FinishAttemptMeta | null>(null);
 
   useEffect(() => {
     const id = earnedAnim.addListener(({ value }) => {
@@ -102,6 +118,75 @@ export default function QuizResultView() {
   const openDialog = (next: Omit<DialogState, "visible">) => setDialog({ ...next, visible: true });
   const closeDialog = () => setDialog((p) => ({ ...p, visible: false }));
 
+  // ✅ NEW: navigation helpers
+  const handleGoHome = () => {
+    try {
+      // expo-router supports canDismiss/dismissAll on newer versions; guard for safety
+      const anyRouter: any = router as any;
+
+      if (typeof anyRouter.canDismiss === "function" && anyRouter.canDismiss()) {
+        if (typeof anyRouter.dismissAll === "function") {
+          anyRouter.dismissAll();
+        } else if (typeof anyRouter.dismiss === "function") {
+          // fallback: dismiss one
+          anyRouter.dismiss();
+        }
+      }
+
+      // replace to prevent back to result
+      router.replace("/tabs/quiz" as any); // <-- chỉnh theo route home của bạn
+    } catch {
+      router.replace("/tabs/quiz" as any);
+    }
+  };
+
+  const handleRetry = async () => {
+    // Nếu chưa có meta (finish chưa xong / lỗi) thì fallback về home
+    if (!finishAttemptMeta?.mode) {
+      handleGoHome();
+      return;
+    }
+
+    const { mode, topicId, level } = finishAttemptMeta;
+
+    try {
+      setFinishing(true);
+
+      // ✅ start lại đúng mode/topic/level
+      const startBody: any = { mode };
+
+      if ((mode === "TOPIC" || mode === "LEARN") && topicId && typeof level === "number") {
+        startBody.topicId = topicId;
+        startBody.level = level;
+      }
+
+      // (optional) bạn có thể muốn set totalQuestions lại như cũ
+      // startBody.totalQuestions = 10;
+
+      const res: any = await quizApi.start(startBody);
+
+      // điều hướng vào màn quiz của bạn
+      // ⚠️ chỉnh pathname cho đúng route quiz screen hiện tại của bạn
+      router.replace({
+        pathname: "/game/quiz" as any,
+        params: {
+          attemptId: res?.attempt?.attemptId,
+          courseTitle,
+        },
+      });
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || e?.message || "Không thể làm lại bài kiểm tra.";
+      openDialog({
+        type: "error",
+        title: "Lỗi",
+        message: msg,
+        closeText: "Đồng ý",
+      });
+    } finally {
+      setFinishing(false);
+    }
+  };
+
   useEffect(() => {
     if (!attemptId) return;
     if (calledRef.current) return;
@@ -123,6 +208,13 @@ export default function QuizResultView() {
 
         setXpMeta(res?.xpMeta ?? null);
         setNewRewards(Array.isArray(res?.newRewards) ? res.newRewards : []);
+
+        // ✅ store meta for retry (mode/topicId/level)
+        setFinishAttemptMeta({
+          mode: toQuizMode(res?.attempt?.mode),
+          topicId: res?.attempt?.topicId ?? null,
+          level: res?.attempt?.level ?? null,
+        });
 
         if (res?.user) {
           patchFromFinish({
@@ -170,6 +262,9 @@ export default function QuizResultView() {
   const subtitle = isSuccess ? `${courseTitle} hoàn thành xuất sắc` : `${courseTitle} đã hoàn thành`;
   const message = isSuccess ? "Bạn đang làm rất tốt! Hãy tiếp tục bức phá." : "Đừng bỏ cuộc! Mỗi lần thử đều giúp bạn tiến bộ hơn.";
 
+  const mode = finishAttemptMeta?.mode;
+  const isLearnMode = mode === "LEARN";
+
   const isFullCombo = totalCount > 0 && correctCount === totalCount;
   const rewardsArr = Array.isArray(newRewards) ? newRewards : [];
   const hasRewards = rewardsArr.length > 0;
@@ -194,21 +289,14 @@ export default function QuizResultView() {
   }, [xpBoostApplied, xpMultiplier, xpMeta]);
 
   return (
-    // ✅ Thay đổi: Bọc ngoài bằng View flex: 1 để chứa Loading Overlay
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         bounces={false}
-        // ✅ Thay đổi: Vô hiệu hóa touch/scroll khi đang finishing
         pointerEvents={finishing ? "none" : "auto"}
       >
         <ResultHeader score={correctCount} total={totalCount} title={title} subtitle={subtitle} iconSource={null} />
-
-        {/* Bỏ loading nhỏ ở đây vì đã có overlay */}
-        {/* {attemptId ? (
-          <View style={styles.finishRow}>{finishing ? <ActivityIndicator size="small" color={theme.colors.primary} /> : null}</View>
-        ) : null} */}
 
         <View style={styles.statsContainer}>
           <StatCard label="Độ chính xác" value={`${accuracy}%`} icon="radio-button-on" iconColor={theme.colors.secondary} />
@@ -229,7 +317,8 @@ export default function QuizResultView() {
           />
         </View>
 
-        {isFullCombo ? (
+        {/* ✅ CHỈ HIỆN FULL COMBO NẾU KHÔNG PHẢI LEARN */}
+        {!isLearnMode && isFullCombo ? (
           <AppBanner
             message={`Full Combo! Bạn trả lời đúng ${correctCount}/${totalCount}. Đã cộng thêm +50 XP thưởng.`}
             variant="success"
@@ -277,7 +366,7 @@ export default function QuizResultView() {
                 params: {
                   attemptId,
                   courseTitle,
-                  fullCombo: String(isFullCombo),
+                  fullCombo: String(!isLearnMode && isFullCombo),
                   xpMeta: JSON.stringify(xpMeta ?? null),
                   newRewards: JSON.stringify(rewardsArr ?? []),
                 },
@@ -285,33 +374,29 @@ export default function QuizResultView() {
             }
             icon="eye-outline"
             style={styles.reviewBtn}
-            // ✅ Thay đổi: Disable khi finishing
             disabled={!attemptId || finishing}
           />
 
           <AppButton
             title="Làm lại"
             variant="primary"
-            onPress={() => router.navigate("/tabs/quiz" as any)}
+            onPress={handleRetry}
             icon="refresh"
             style={styles.actionMargin}
-            // ✅ Thay đổi: Disable khi finishing
             disabled={finishing}
           />
 
           <AppButton
             title="Về trang chủ"
             variant="outline"
-            onPress={() => router.navigate("/tabs/quiz" as any)}
+            onPress={handleGoHome}
             icon="home-outline"
             style={styles.homeBtn}
-            // ✅ Thay đổi: Disable khi finishing
             disabled={finishing}
           />
         </View>
       </ScrollView>
 
-      {/* ✅ Thay đổi: Thêm Loading Overlay bao trùm toàn màn hình */}
       {finishing && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -372,18 +457,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: theme.colors.background,
   },
-  finishRow: {
-    marginTop: theme.spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // ✅ Style mới cho Overlay
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject, // Phủ kín màn hình
-    backgroundColor: "rgba(255, 255, 255, 0.8)", // Nền trắng mờ (hoặc tối tùy theme)
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 9999, // Đè lên mọi thứ
+    zIndex: 9999,
   },
   loadingText: {
     marginTop: theme.spacing.sm,

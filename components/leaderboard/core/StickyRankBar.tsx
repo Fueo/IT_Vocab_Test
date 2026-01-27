@@ -21,7 +21,7 @@ const StickyRankBar: React.FC<Props> = ({
     displayName,
     meValue,
 }) => {
-    const unit = selectedTab === "XP" ? "XP" : "Days";
+    const unit = selectedTab === "XP" ? "XP" : "Ngày";
 
     const valueText =
         meValue == null

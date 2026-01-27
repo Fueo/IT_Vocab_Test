@@ -1,24 +1,7 @@
 import React, { useMemo } from "react";
-import { Image, ImageSourcePropType, StyleSheet, View } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import theme from "../../../theme";
 import AppText from "../../core/AppText";
-
-type FrameId = "frame1" | "frame2" | "frame3" | "frame4" | "frame5" | "frame6";
-
-// ✅ FRAME LIBRARY (local) - giữ lại để tương thích
-const FRAME_LIBRARY: Record<FrameId, ImageSourcePropType> = {
-  frame1: require("../../../media/frames/avatar_frame1.png"),
-  frame2: require("../../../media/frames/avatar_frame2.png"),
-  frame3: require("../../../media/frames/avatar_frame3.png"),
-  frame4: require("../../../media/frames/avatar_frame4.png"),
-  frame5: require("../../../media/frames/avatar_frame5.png"),
-  frame6: require("../../../media/frames/avatar_frame6.png"),
-};
-
-const getFrameSourceFromId = (frameId?: string) => {
-  if (!frameId) return undefined;
-  return FRAME_LIBRARY[frameId as FrameId];
-};
 
 interface UserAvatarProps {
   initials?: string;
@@ -26,20 +9,10 @@ interface UserAvatarProps {
   size?: number;
 
   /**
-   * ✅ NEW: Frame từ URL (backend trả về, ví dụ profile.equippedSkin.itemImageURL)
-   * Nếu có frameImageUrl thì sẽ dùng frame theo URL.
+   * ✅ Frame từ URL (backend trả về)
+   * VD: profile.equippedSkin.itemImageURL hoặc leaderboard.itemImageURL
    */
   frameImageUrl?: string | null;
-
-  /**
-   * ✅ Legacy: dùng frame local theo id
-   */
-  frameId?: FrameId;
-
-  /**
-   * ✅ Legacy: truyền source trực tiếp (ưu tiên cao nhất)
-   */
-  frameSource?: ImageSourcePropType;
 
   // Scale avatar khi có khung
   avatarScale?: number;
@@ -52,92 +25,54 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   initials = "U",
   imageUrl,
   size = 100,
-
   frameImageUrl,
-  frameId,
-  frameSource,
-
   avatarScale = 0.82,
   children,
 }) => {
-  /**
-   * ✅ Resolve frame theo ưu tiên:
-   * 1) frameSource (local/manual)
-   * 2) frameImageUrl (remote)
-   * 3) frameId (local library)
-   */
-  const resolvedFrame = useMemo<{
-    kind: "none" | "local" | "remote";
-    source?: ImageSourcePropType;
-    uri?: string;
-  }>(() => {
-    if (frameSource) return { kind: "local", source: frameSource };
+  const frameUri = useMemo(() => {
+    const url = String(frameImageUrl ?? "").trim();
+    return url ? url : null;
+  }, [frameImageUrl]);
 
-    const url = (frameImageUrl ?? "").trim();
-    if (url) return { kind: "remote", uri: url };
+  const hasFrame = !!frameUri;
 
-    const byId = getFrameSourceFromId(frameId);
-    if (byId) return { kind: "local", source: byId };
-
-    return { kind: "none" };
-  }, [frameSource, frameImageUrl, frameId]);
-
-  const hasFrame = resolvedFrame.kind !== "none";
-
-  // Nếu có khung thì avatar nhỏ lại, không có khung thì full size
   const finalScale = hasFrame ? avatarScale : 1;
-
   const avatarSize = size * finalScale;
   const avatarRadius = avatarSize / 2;
   const fontSize = avatarSize * 0.4;
 
-  const renderAvatarContent = () => (
-    <View
-      style={[
-        styles.avatarContainer,
-        {
-          width: avatarSize,
-          height: avatarSize,
-          borderRadius: avatarRadius,
-          borderWidth: 1,
-          borderColor: "#FFFFFF",
-        },
-      ]}
-    >
-      {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={styles.avatarImage} resizeMode="cover" />
-      ) : (
-        <View style={styles.placeholder}>
-          <AppText
-            size="huge"
-            weight="bold"
-            color={theme.colors.success}
-            style={{ fontSize }}
-          >
-            {initials}
-          </AppText>
-        </View>
-      )}
-    </View>
-  );
-
   return (
     <View style={[styles.root, { width: size, height: size }]}>
       {/* Avatar */}
-      <View style={styles.centerLayer}>{renderAvatarContent()}</View>
+      <View style={styles.centerLayer}>
+        <View
+          style={[
+            styles.avatarContainer,
+            {
+              width: avatarSize,
+              height: avatarSize,
+              borderRadius: avatarRadius,
+              borderWidth: 1,
+              borderColor: "#FFFFFF",
+            },
+          ]}
+        >
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.avatarImage} resizeMode="cover" />
+          ) : (
+            <View style={styles.placeholder}>
+              <AppText size="huge" weight="bold" color={theme.colors.success} style={{ fontSize }}>
+                {initials}
+              </AppText>
+            </View>
+          )}
+        </View>
+      </View>
 
-      {/* Frame */}
-      {resolvedFrame.kind === "local" && resolvedFrame.source && (
+      {/* Frame (remote only) */}
+      {frameUri && (
         <Image
-          source={resolvedFrame.source}
-          style={[styles.frameImage, { width: size, height: size }]}
-          resizeMode="contain"
-        />
-      )}
-
-      {resolvedFrame.kind === "remote" && resolvedFrame.uri && (
-        <Image
-          source={{ uri: resolvedFrame.uri }}
+          source={{ uri: frameUri }}
           style={[styles.frameImage, { width: size, height: size }]}
           resizeMode="contain"
         />

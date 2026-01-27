@@ -5,14 +5,13 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
 import theme from "../../theme";
@@ -29,6 +28,8 @@ function asString(v: unknown): string | undefined {
   return Array.isArray(v) ? String(v[0]) : String(v);
 }
 
+
+
 type Status = "playing" | "checked";
 
 /**
@@ -40,10 +41,12 @@ function sanitizeFillInput(raw: string) {
     .replace(/đ/g, "d")
     .replace(/Đ/g, "D")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "")
-    .replace(/[^a-zA-Z0-9]/g, "");
+    .replace(/[\u0300-\u036f]/g, "") // bỏ dấu
+    .replace(/[^\w]/g, "")           // chỉ giữ [A-Za-z0-9_]
+    .replace(/_/g, "")               // bỏ luôn underscore nếu không muốn
+    .slice(0, 1000);
 }
+
 
 /**
  * ✅ FILL_BLANK API: chỉ có 1 option đúng, option.content chính là đáp án.
@@ -78,7 +81,7 @@ const FillBlankCellsInput = ({
   isCorrect,
 }: {
   value: string;
-  onChange: (t: string) => void;
+  onChange: React.Dispatch<React.SetStateAction<string>>;
   length: number;
   editable: boolean;
   autoFocus?: boolean;
@@ -86,37 +89,73 @@ const FillBlankCellsInput = ({
   isCorrect: boolean;
 }) => {
   const inputRef = useRef<TextInput>(null);
-  const cursorOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const blinking = Animated.loop(
-      Animated.sequence([
-        Animated.timing(cursorOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
-        Animated.timing(cursorOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
-      ])
-    );
-    blinking.start();
-    return () => blinking.stop();
-  }, [cursorOpacity]);
 
   const normalized = useMemo(() => sanitizeFillInput(value).slice(0, length), [value, length]);
-
   const borderColorWhenChecked = checked ? (isCorrect ? "#22C55E" : "#EF4444") : undefined;
+
+  const clearNative = useCallback(() => {
+    requestAnimationFrame(() => {
+      inputRef.current?.setNativeProps({ text: "" });
+    });
+  }, []);
+
+  const handleChangeText = useCallback(
+    (text: string) => {
+      if (!editable) return;
+
+      let cleaned = sanitizeFillInput(text);
+      if (!cleaned) {
+        clearNative();
+        return;
+      }
+
+      onChange((prev) => {
+        let prevNorm = sanitizeFillInput(prev).slice(0, length);
+
+        // IME gửi lại cả chuỗi (vd prev="ma", text="mama") -> bỏ prefix trùng
+        if (cleaned.startsWith(prevNorm)) {
+          cleaned = cleaned.slice(prevNorm.length);
+        }
+
+        // append phần mới (hỗ trợ paste)
+        let next = prevNorm;
+        for (const ch of cleaned) {
+          if (next.length >= length) break;
+          next += ch;
+        }
+        return next.slice(0, length);
+      });
+
+      clearNative();
+    },
+    [editable, clearNative, length, onChange]
+  );
+
+  const handleKeyPress = useCallback(
+    (e: any) => {
+      if (!editable) return;
+      if (e?.nativeEvent?.key === "Backspace") {
+        onChange((prev) => sanitizeFillInput(prev).slice(0, -1));
+        clearNative();
+      }
+    },
+    [editable, clearNative, onChange]
+  );
 
   const renderCells = () => {
     const cells = [];
     for (let i = 0; i < length; i++) {
-      const ch = normalized[i];
-      const isFocused = i === normalized.length;
+      const ch = normalized[i] || "";
+      const isFocused = editable && i === normalized.length;
 
       cells.push(
         <View
           key={i}
           style={[
             styles.cell,
-            editable && isFocused ? styles.cellFocused : null,
+            isFocused ? styles.cellFocused : null,
             ch ? styles.cellFilled : null,
-            checked && styles.cellChecked,
+            checked ? styles.cellChecked : null,
             checked && borderColorWhenChecked ? { borderColor: borderColorWhenChecked } : null,
           ]}
         >
@@ -124,9 +163,7 @@ const FillBlankCellsInput = ({
             <AppText size="sm" weight="bold" color={theme.colors.text.primary}>
               {ch}
             </AppText>
-          ) : (
-            editable && isFocused && <Animated.View style={[styles.cursor, { opacity: cursorOpacity }]} />
-          )}
+          ) : null}
         </View>
       );
     }
@@ -135,6 +172,7 @@ const FillBlankCellsInput = ({
 
   return (
     <View style={{ marginTop: theme.spacing.sm }}>
+      {/* ✅ Đây là UI người dùng nhìn thấy */}
       <Pressable
         style={styles.cellContainer}
         onPress={() => editable && inputRef.current?.focus()}
@@ -143,18 +181,22 @@ const FillBlankCellsInput = ({
         {renderCells()}
       </Pressable>
 
+      {/* ✅ Input ẩn chỉ để nhận phím */}
       <TextInput
         ref={inputRef}
-        value={normalized}
+        value=""
         editable={editable}
         autoFocus={autoFocus}
-        keyboardType={Platform.OS === "ios" ? "ascii-capable" : "default"}
+        keyboardType={Platform.OS === "ios" ? "ascii-capable" : "visible-password"}
         autoCapitalize="none"
         autoCorrect={false}
-        onChangeText={(text) => onChange(sanitizeFillInput(text).slice(0, length))}
+        spellCheck={false}
+        autoComplete="off"
+        importantForAutofill="no"
+        onChangeText={handleChangeText}
+        onKeyPress={handleKeyPress}
         style={styles.hiddenInput}
         caretHidden
-        maxLength={length}
       />
     </View>
   );
